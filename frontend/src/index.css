@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 33% 98%;
+    --foreground: 224 32% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 32% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 32% 12%;
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 20% 94%;
+    --secondary-foreground: 224 32% 16%;
+    --muted: 220 20% 94%;
+    --muted-foreground: 220 10% 42%;
+    --accent: 189 94% 43%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 69% 36%;
+    --success-foreground: 0 0% 100%;
+    --border: 220 16% 88%;
+    --input: 220 16% 88%;
+    --ring: 262 83% 58%;
+    --radius: 1rem;
+    --glass: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 230 30% 6%;
+    --foreground: 220 20% 94%;
+    --card: 230 25% 10%;
+    --card-foreground: 220 20% 94%;
+    --popover: 230 25% 11%;
+    --popover-foreground: 220 20% 94%;
+    --primary: 263 90% 68%;
+    --primary-foreground: 230 30% 8%;
+    --secondary: 230 18% 16%;
+    --secondary-foreground: 220 20% 94%;
+    --muted: 230 18% 15%;
+    --muted-foreground: 220 12% 66%;
+    --accent: 189 90% 50%;
+    --accent-foreground: 230 30% 8%;
+    --destructive: 0 72% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 60% 48%;
+    --success-foreground: 230 30% 8%;
+    --border: 230 16% 20%;
+    --input: 230 16% 20%;
+    --ring: 263 90% 68%;
+    --glass: 230 25% 12%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  ::selection {
+    @apply bg-primary/25;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply border border-white/40 bg-[hsl(var(--glass)/0.65)] shadow-[0_8px_32px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-white/[0.06] dark:shadow-[0_8px_32px_-12px_rgba(0,0,0,0.6)];
+  }
+  .text-gradient {
+    @apply bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 bg-clip-text text-transparent;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+  .backface-hidden {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+}
+
+/* react-pdf text layer sits above the canvas; keep it subtle */
+.react-pdf__Page__textContent ::selection {
+  background: hsl(var(--primary) / 0.3);
+}
