@@ -13,7 +13,6 @@ split by rows with the header repeated.
 from __future__ import annotations
 
 import bisect
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -39,10 +38,6 @@ MAX_TABLE_CHARS = 4000  # standalone table chunk; larger tables are split by row
 MAX_TOTALS_LINES = 3  # short "Label: value" lines after a table that are kept with it
 MAX_TOTALS_CHARS = 80
 MIN_CHUNK_CHARS = 3
-MIN_CARRY_CHARS = 120  # trailing short lines of a chunk repeated at the start of the next one
-MAX_CARRY_LINE = 100  # lines longer than this are prose and are not carried
-# "Semester: Fall 2024", "Invoice No: 42", "Patient : Ali" - a short label opening a record.
-_RECORD_LABEL = re.compile(r"^[^\W\d_][\w .()/&-]{0,40}?\s*:\s*\S.{0,60}$")
 
 
 @dataclass
@@ -172,7 +167,7 @@ def _chunk_flow(doc: ParsedDocument, config: ChunkConfig) -> list[_Piece]:
     def flush() -> None:
         nonlocal flow
         if flow:
-            pieces.extend(_split_flow(flow, splitter, config.chunk_overlap))
+            pieces.extend(_split_flow(flow, splitter))
         flow = _Flow()
 
     while i < len(blocks):
@@ -201,7 +196,7 @@ def _chunk_flow(doc: ParsedDocument, config: ChunkConfig) -> list[_Piece]:
     return pieces
 
 
-def _split_flow(flow: _Flow, splitter: RecursiveCharacterTextSplitter, carry_chars: int) -> list[_Piece]:
+def _split_flow(flow: _Flow, splitter: RecursiveCharacterTextSplitter) -> list[_Piece]:
     text = flow.text
     pieces: list[_Piece] = []
     for part in splitter.create_documents([text]):
@@ -218,64 +213,6 @@ def _split_flow(flow: _Flow, splitter: RecursiveCharacterTextSplitter, carry_cha
                 has_table=flow.has_table(start, end),
             )
         )
-    return _carry_tail_lines(pieces, max(carry_chars, MIN_CARRY_CHARS))
-
-
-def _short_tail(text: str, budget: int) -> str:
-    """Trailing short lines of a chunk (labels, list items, table rows) within `budget` chars.
-
-    The splitter's own overlap works on whole splits, so when it cuts between sections nothing
-    is carried over. For structured content that loses the lead-in: a chunk that starts with a
-    semester's grades but not its "Semester: Fall 2024" line is ambiguous. Long prose lines stop
-    the scan, since sentences are already split with overlap.
-    """
-    lines = [ln.strip() for ln in text.replace(ATOMIC_NEWLINE, "\n").splitlines() if ln.strip()]
-    tail: list[str] = []
-    used = 0
-    for line in reversed(lines[1:]):  # never carry a chunk's entire content
-        if len(line) > MAX_CARRY_LINE or used + len(line) > budget:
-            break
-        tail.insert(0, line)
-        used += len(line) + 2
-    return "\n\n".join(tail)
-
-
-def _open_record_header(text: str) -> str | None:
-    """The "Label: value" line that opens the record a chunk ends inside.
-
-    Scanning backwards, the first label line that is followed by at least one plain line is the
-    header of the still-open record ("Semester: Spring 2025" followed by course rows). A label
-    with nothing after it is a trailing total ("CGPA : 3.39") and does not count.
-    """
-    lines = [ln.strip() for ln in text.replace(ATOMIC_NEWLINE, "\n").splitlines() if ln.strip()]
-    seen_plain = False
-    for line in reversed(lines):
-        if _RECORD_LABEL.match(line):
-            return line if seen_plain else None
-        seen_plain = True
-    return None
-
-
-def _carry_tail_lines(pieces: list[_Piece], budget: int) -> list[_Piece]:
-    for prev, cur in zip(pieces, pieces[1:]):
-        if prev.kind == "table" or cur.kind == "table":
-            continue
-        start = cur.text.lstrip()
-        tail = _short_tail(prev.text, budget)
-        tail_needed = bool(tail) and not start.startswith(tail[:40])
-        header = _open_record_header(prev.text)
-        header_needed = (
-            bool(header) and not start.startswith(header) and not (tail_needed and header in tail)
-        )
-        parts = ([header] if header_needed else []) + ([tail] if tail_needed else [])
-        if parts:
-            prefix = "\n\n".join(parts) + "\n\n"
-            cur.text = prefix + cur.text
-            if cur.page_breaks:  # keep page-break offsets pointing at the same text
-                cur.page_breaks = ";".join(
-                    f"{int(off) + len(prefix)}:{page}"
-                    for off, _, page in (entry.partition(":") for entry in cur.page_breaks.split(";"))
-                )
     return pieces
 
 

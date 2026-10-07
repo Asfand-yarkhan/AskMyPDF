@@ -3,12 +3,11 @@ import {
   ArrowRight, Check, CloudUpload, Cpu, FileText, Loader2, RotateCcw, Scissors, ScanSearch, X,
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
-import { MAX_PAGES, MAX_UPLOAD_MB } from "@/api/client";
+import { MAX_UPLOAD_MB } from "@/api/client";
 import type { DocumentInfo } from "@/api/types";
 import { ChunkConfigCard } from "@/components/ChunkConfigCard";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { useHealth } from "@/hooks/useDocuments";
 import { useUpload } from "@/hooks/useUpload";
 import { cn, formatBytes } from "@/lib/utils";
 
@@ -26,7 +25,6 @@ const STEP_INDEX: Record<string, number> = {
 
 export function UploadDropzone({ onReady }: { onReady: (doc: DocumentInfo) => void }) {
   const { state, start, cancel, reset } = useUpload();
-  const { health } = useHealth();
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const busy = !["idle", "done", "error"].includes(state.stage);
@@ -77,7 +75,7 @@ export function UploadDropzone({ onReady }: { onReady: (doc: DocumentInfo) => vo
         <motion.div
           animate={{ y: dragging ? -8 : [0, -6, 0] }}
           transition={dragging ? { duration: 0.2 } : { duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          className="grid size-20 place-items-center rounded-3xl bg-brand text-white shadow-2xl shadow-indigo-500/40"
+          className="grid size-20 place-items-center rounded-3xl bg-gradient-to-br from-violet-500 via-fuchsia-500 to-cyan-400 text-white shadow-2xl shadow-violet-500/40"
         >
           <CloudUpload className="size-9" />
         </motion.div>
@@ -86,7 +84,7 @@ export function UploadDropzone({ onReady }: { onReady: (doc: DocumentInfo) => vo
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
           or <span className="font-medium text-primary underline-offset-4 group-hover:underline">browse files</span>{" "}
-          · up to {health?.max_upload_mb ?? MAX_UPLOAD_MB} MB and {health?.max_pages ?? MAX_PAGES} pages · scanned PDFs supported (OCR)
+          · up to {MAX_UPLOAD_MB} MB · scanned PDFs supported (OCR)
         </p>
       </motion.div>
     );

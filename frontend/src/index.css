@@ -4,20 +4,13 @@
 
 @layer base {
   :root {
-    /* Brand: one gradient, indigo -> cyan, used for every accent surface. */
-    --brand-from: 239 84% 62%;
-    --brand-to: 189 94% 43%;
-    --glow-1: 239 84% 67%;
-    --glow-2: 189 94% 50%;
-    --glow-opacity: 0.12;
-
-    --background: 220 30% 97%;
+    --background: 220 33% 98%;
     --foreground: 224 32% 12%;
     --card: 0 0% 100%;
     --card-foreground: 224 32% 12%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 32% 12%;
-    --primary: 239 84% 60%;
+    --primary: 262 83% 58%;
     --primary-foreground: 0 0% 100%;
     --secondary: 220 20% 94%;
     --secondary-foreground: 224 32% 16%;
@@ -31,21 +24,19 @@
     --success-foreground: 0 0% 100%;
     --border: 220 16% 88%;
     --input: 220 16% 88%;
-    --ring: 239 84% 60%;
+    --ring: 262 83% 58%;
     --radius: 1rem;
     --glass: 0 0% 100%;
   }
 
   .dark {
-    --glow-opacity: 0.16;
-
-    --background: 228 40% 7%;
+    --background: 230 30% 6%;
     --foreground: 220 20% 94%;
-    --card: 228 32% 11%;
+    --card: 230 25% 10%;
     --card-foreground: 220 20% 94%;
-    --popover: 228 32% 12%;
+    --popover: 230 25% 11%;
     --popover-foreground: 220 20% 94%;
-    --primary: 234 89% 74%;
+    --primary: 263 90% 68%;
     --primary-foreground: 230 30% 8%;
     --secondary: 230 18% 16%;
     --secondary-foreground: 220 20% 94%;
@@ -59,8 +50,8 @@
     --success-foreground: 230 30% 8%;
     --border: 230 16% 20%;
     --input: 230 16% 20%;
-    --ring: 234 89% 74%;
-    --glass: 228 32% 12%;
+    --ring: 263 90% 68%;
+    --glass: 230 25% 12%;
   }
 
   * {
@@ -84,11 +75,8 @@
   .glass {
     @apply border border-white/40 bg-[hsl(var(--glass)/0.65)] shadow-[0_8px_32px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-white/[0.06] dark:shadow-[0_8px_32px_-12px_rgba(0,0,0,0.6)];
   }
-  .bg-brand {
-    background-image: linear-gradient(135deg, hsl(var(--brand-from)), hsl(var(--brand-to)));
-  }
   .text-gradient {
-    @apply bg-brand bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 bg-clip-text text-transparent;
   }
   .scrollbar-thin {
     scrollbar-width: thin;
@@ -101,4 +89,9 @@
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
   }
+}
+
+/* react-pdf text layer sits above the canvas; keep it subtle */
+.react-pdf__Page__textContent ::selection {
+  background: hsl(var(--primary) / 0.3);
 }

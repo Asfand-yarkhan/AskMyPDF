@@ -172,8 +172,6 @@ class ChatTurn(BaseModel):
 
 class ChatRequest(BaseModel):
     doc_id: str = Field(min_length=4, max_length=64)
-    # Extra documents to search together with doc_id (Q&A / Explain only).
-    extra_doc_ids: list[str] = Field(default_factory=list, max_length=9)
     message: str = Field(min_length=1, max_length=4000)
     history: list[ChatTurn] = Field(default_factory=list, max_length=50)
 
@@ -186,8 +184,6 @@ class SourceChunk(BaseModel):
     section: str | None = None
     kind: str = "text"
     has_table: bool = False
-    doc_id: str = ""
-    filename: str = ""
     text: str
 
 
@@ -325,5 +321,3 @@ class HealthResponse(BaseModel):
     embedding_model: str
     llm_configured: bool
     documents: int
-    max_upload_mb: int
-    max_pages: int

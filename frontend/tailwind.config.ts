@@ -32,6 +32,11 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
+        blob: {
+          "0%, 100%": { transform: "translate(0, 0) scale(1)" },
+          "33%": { transform: "translate(30px, -40px) scale(1.08)" },
+          "66%": { transform: "translate(-25px, 20px) scale(0.95)" },
+        },
         shimmer: { "100%": { transform: "translateX(100%)" } },
         "pulse-ring": {
           "0%": { boxShadow: "0 0 0 0 hsl(var(--primary) / 0.55)" },
@@ -39,6 +44,7 @@ export default {
         },
       },
       animation: {
+        blob: "blob 18s ease-in-out infinite",
         shimmer: "shimmer 1.6s infinite",
         "pulse-ring": "pulse-ring 1.2s ease-out 2",
       },
