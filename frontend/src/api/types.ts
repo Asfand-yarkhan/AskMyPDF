@@ -45,6 +45,8 @@ export interface SourceChunk {
   section: string | null;
   kind: string;
   has_table: boolean;
+  doc_id: string;
+  filename: string;
   text: string;
 }
 
@@ -91,6 +93,7 @@ export type ChatEvent =
   | { type: "quiz"; quiz: Quiz }
   | { type: "flashcards"; flashcards: FlashcardDeck }
   | { type: "error"; message: string }
+  | { type: "cached" }
   | { type: "done" };
 
 export type UploadStage = "uploading" | "uploaded" | "parsing" | "analyzing" | "chunking" | "embedding" | "done";
@@ -137,4 +140,6 @@ export interface Health {
   embedding_model: string;
   llm_configured: boolean;
   documents: number;
+  max_upload_mb: number;
+  max_pages: number;
 }

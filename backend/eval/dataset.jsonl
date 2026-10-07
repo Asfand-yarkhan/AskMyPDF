@@ -1,0 +1,18 @@
+{"id": "hb-leave", "doc": "handbook.pdf", "question": "How many days of paid annual leave do employees get?", "expect": ["22"], "pages": [1]}
+{"id": "hb-sick-ur", "doc": "handbook.pdf", "question": "Sick leave kitne din ki milti hai?", "expect": ["10"], "pages": [1]}
+{"id": "hb-carry", "doc": "handbook.pdf", "question": "How much unused leave can be carried over?", "expect": ["5"], "pages": [1]}
+{"id": "hb-pol104", "doc": "handbook.pdf", "question": "What does POL-104 say about the return window?", "expect": ["30"], "pages": [2]}
+{"id": "hb-refund-time", "doc": "handbook.pdf", "question": "How long does it take for a refund to be issued?", "expect": ["7"], "pages": [2]}
+{"id": "hb-remote", "doc": "handbook.pdf", "question": "How many days per week can I work from home?", "expect": ["3"], "pages": [3]}
+{"id": "hb-sec310", "doc": "handbook.pdf", "question": "Under SEC-310, what is the minimum password length?", "expect": ["14"], "pages": [4]}
+{"id": "hb-rotate", "doc": "handbook.pdf", "question": "How often do passwords have to be changed?", "expect": ["90"], "pages": [4]}
+{"id": "hb-meal", "doc": "handbook.pdf", "question": "What is the daily meal allowance when travelling?", "expect": ["45"], "pages": [5]}
+{"id": "hb-approval", "doc": "handbook.pdf", "question": "Who has to approve an expense of 800 USD?", "expect": ["manager"], "pages": [5]}
+{"id": "hb-ext", "doc": "handbook.pdf", "question": "What is the IT help desk extension?", "expect": ["4455"], "pages": [6]}
+{"id": "hb-neg-stock", "doc": "handbook.pdf", "question": "What is Northwind's current stock price?", "negative": true}
+{"id": "hb-neg-ceo", "doc": "handbook.pdf", "question": "What is the name of the CEO's dog?", "negative": true}
+{"id": "rc-last", "doc": "results.pdf", "question": "What was the CGPA in the last semester?", "expect": ["3.44"]}
+{"id": "rc-fall24", "doc": "results.pdf", "question": "What CGPA was recorded for Fall 2024?", "expect": ["3.39"]}
+{"id": "rc-fail", "doc": "results.pdf", "question": "Which course did the student fail?", "expect": ["Operating Systems"]}
+{"id": "rc-ur", "doc": "results.pdf", "question": "Spring 2024 ka CGPA kya tha?", "expect": ["3.58"]}
+{"id": "rc-first", "doc": "results.pdf", "question": "How many marks were scored in Introduction to ICT?", "expect": ["88"]}

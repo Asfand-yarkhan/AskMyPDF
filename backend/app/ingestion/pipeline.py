@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from app.config import Settings
 from app.ingestion.analyzer import analyze_document, choose_chunk_config
 from app.ingestion.chunker import chunk_document
-from app.ingestion.loader import PDFParseError, load_pdf
+from app.ingestion.loader import PDFParseError, count_pages, load_pdf
 from app.registry import DocumentRegistry
 from app.schemas import DocumentInfo
 from app.vectorstore import VectorStoreManager
@@ -57,6 +57,13 @@ def ingest_pdf(
             logger.info("Reusing embeddings for %s (%s)", filename, doc_id)
             report("done", 1.0, "Already indexed. Reusing existing embeddings.")
             return existing, True
+
+        pages = count_pages(data)
+        if pages > settings.max_pages:
+            raise PDFParseError(
+                f"This PDF has {pages} pages; the limit is {settings.max_pages}. "
+                "Please upload a shorter document or split it into parts."
+            )
 
         report("parsing", 0.05, "Reading pages, headings and tables...")
         parsed = load_pdf(

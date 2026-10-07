@@ -130,6 +130,13 @@ def test_llm_out_of_scope_kept_for_greetings() -> None:
     assert result.intent == Intent.OUT_OF_SCOPE
 
 
+def test_plain_summarize_is_not_forced_short() -> None:
+    llm = FakeListChatModel(responses=['{"intent": "SUMMARY", "params": {"summary_style": "short"}}'])
+    assert asyncio.run(IntentRouter(llm).aroute("Summarize this document")).params.summary_style is None
+    llm = FakeListChatModel(responses=['{"intent": "SUMMARY", "params": {"summary_style": "short"}}'])
+    assert asyncio.run(IntentRouter(llm).aroute("give me a brief summary")).params.summary_style == "short"
+
+
 def test_router_without_llm_is_heuristic() -> None:
     result = asyncio.run(IntentRouter(None).aroute("Make flashcards"))
     assert result.intent == Intent.FLASHCARDS

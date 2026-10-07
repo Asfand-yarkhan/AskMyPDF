@@ -2,7 +2,7 @@ import { memo } from "react";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CitationChip } from "@/components/CitationChip";
-import { linkifyCitations } from "@/lib/utils";
+import { linkifyCitations, parseCiteHref } from "@/lib/utils";
 
 const urlTransform = (url: string) => (url.startsWith("cite:") ? url : defaultUrlTransform(url));
 
@@ -14,9 +14,9 @@ export const Markdown = memo(function Markdown({ content }: { content: string })
         urlTransform={urlTransform}
         components={{
           a({ href, children }) {
-            if (href?.startsWith("cite:")) {
-              const page = Number.parseInt(href.slice(5), 10);
-              return <CitationChip page={page} label={String(children)} />;
+            const cite = href ? parseCiteHref(href) : null;
+            if (cite) {
+              return <CitationChip page={cite.page} docNumber={cite.doc} label={String(children)} />;
             }
             return (
               <a href={href} target="_blank" rel="noreferrer noopener">

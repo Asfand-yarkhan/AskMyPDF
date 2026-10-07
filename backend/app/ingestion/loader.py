@@ -87,6 +87,15 @@ class _RawBlock:
 # ---------------------------------------------------------------------------
 
 
+def count_pages(data: bytes) -> int:
+    """Page count without parsing content (used to reject oversized uploads early)."""
+    try:
+        with fitz.open(stream=data, filetype="pdf") as pdf:
+            return pdf.page_count
+    except Exception as exc:
+        raise PDFParseError(f"Could not open PDF: {exc}") from exc
+
+
 def load_pdf(
     data: bytes,
     filename: str,
@@ -263,7 +272,8 @@ def _is_heading(line: _Line, block: _RawBlock, body_size: float) -> bool:
     words = text.split()
     if not 2 <= len(text) <= 120 or len(words) > 14:
         return False
-    if _ONLY_NUMBERS_OR_PUNCT.match(text) or text.endswith((".", ",", ";")):
+    if _ONLY_NUMBERS_OR_PUNCT.match(text) or text.endswith((".", ",", ";")) or "|" in text:
+        # "|" means a table header row drawn as text, not a section title.
         return False
     if line.size >= body_size * 1.15:
         return True

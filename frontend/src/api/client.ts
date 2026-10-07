@@ -9,7 +9,10 @@ import type {
 } from "./types";
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") || "/api";
+// Defaults matching the backend; the server enforces its configured values and the
+// upload screen shows the live ones from /health.
 export const MAX_UPLOAD_MB = 50;
+export const MAX_PAGES = 100;
 
 export class ApiError extends Error {
   constructor(
@@ -81,7 +84,7 @@ export function createSSEParser<T>(onEvent: (event: T) => void) {
 }
 
 export async function streamChat(
-  body: { doc_id: string; message: string; history: ChatTurn[] },
+  body: { doc_id: string; extra_doc_ids?: string[]; message: string; history: ChatTurn[] },
   onEvent: (event: ChatEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {

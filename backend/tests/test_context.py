@@ -15,7 +15,7 @@ def test_page_markers_inserted_at_breaks() -> None:
     marked = with_page_markers(doc)
     assert marked == "Semester: Spring 2025\n| table |\n[p. 4]\nCGPA : 3.68\nSemester: Fall 2025"
     context = format_context([doc])
-    assert context.startswith("[p. 3] | table\n")
+    assert context.startswith("[p. 3]\n(contains a table)\n")
 
 
 def test_no_breaks_leaves_text_untouched() -> None:
