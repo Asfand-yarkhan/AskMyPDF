@@ -33,13 +33,8 @@ def page_label(meta: dict[str, Any]) -> str:
     return f"p. {page}" if end <= page else f"p. {page}-{end}"
 
 
-def cite_tag(page: int | str, doc_number: int | None = None) -> str:
-    """Citation tag the model copies: [p. 4], or [Doc 2, p. 4] when several documents are in play."""
-    return f"[Doc {doc_number}, p. {page}]" if doc_number else f"[p. {page}]"
-
-
-def with_page_markers(doc: Document, doc_number: int | None = None) -> str:
-    """Chunk text with a page tag wherever a new page starts inside the chunk."""
+def with_page_markers(doc: Document) -> str:
+    """Chunk text with a [p. X] marker wherever a new page starts inside the chunk."""
     text = doc.page_content
     breaks = str(doc.metadata.get("page_breaks") or "")
     if not breaks:
@@ -48,31 +43,18 @@ def with_page_markers(doc: Document, doc_number: int | None = None) -> str:
         offset, _, page = entry.partition(":")
         if offset.isdigit() and page.isdigit() and int(offset) <= len(text):
             pos = int(offset)
-            text = f"{text[:pos].rstrip()}\n{cite_tag(page, doc_number)}\n{text[pos:].lstrip()}"
+            text = f"{text[:pos].rstrip()}\n[p. {page}]\n{text[pos:].lstrip()}"
     return text
 
 
-def format_context(docs: Sequence[Document], doc_numbers: dict[str, int] | None = None) -> str:
-    """Excerpts with page headers; the model copies the tag for citations.
-
-    `doc_numbers` maps doc_id -> 1-based number when answering across several documents.
-    """
+def format_context(docs: Sequence[Document]) -> str:
+    """Excerpts with page headers; the model copies the [p. X] tag for citations."""
     blocks = []
     for doc in docs:
         meta = doc.metadata
-        number = (doc_numbers or {}).get(str(meta.get("doc_id")))
-        # The citation tag stands alone on its line so models copy just the tag, not the notes.
-        notes = []
-        if number and meta.get("filename"):
-            notes.append(f"file: {meta['filename']}")
-        if meta.get("section"):
-            notes.append(f"section: {meta['section']}")
-        if meta.get("has_table") or meta.get("kind") == "table":
-            notes.append("contains a table")
-        header = cite_tag(int(meta.get("page", 1)), number)
-        if notes:
-            header += f"\n({'; '.join(notes)})"
-        blocks.append(f"{header}\n{with_page_markers(doc, number)}")
+        section = f" | section: {meta['section']}" if meta.get("section") else ""
+        kind = " | table" if meta.get("has_table") or meta.get("kind") == "table" else ""
+        blocks.append(f"[p. {int(meta.get('page', 1))}]{section}{kind}\n{with_page_markers(doc)}")
     return "\n\n---\n\n".join(blocks)
 
 
@@ -86,8 +68,6 @@ def to_sources(docs: Sequence[Document]) -> list[dict[str, Any]]:
             section=d.metadata.get("section") or None,
             kind=str(d.metadata.get("kind", "text")),
             has_table=bool(d.metadata.get("has_table", False)),
-            doc_id=str(d.metadata.get("doc_id", "")),
-            filename=str(d.metadata.get("filename", "")),
             text=d.page_content,
         ).model_dump()
         for d in docs

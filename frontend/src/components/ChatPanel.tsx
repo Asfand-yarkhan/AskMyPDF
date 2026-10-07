@@ -1,11 +1,9 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowDown, BookOpen, Eraser, ExternalLink, GraduationCap, Layers, ListChecks, Menu, MessageSquareText, Sparkles } from "lucide-react";
+import { ArrowDown, BookOpen, Eraser, GraduationCap, Layers, ListChecks, Menu, MessageSquareText, PanelRight, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "@/api/client";
 import type { DocumentInfo } from "@/api/types";
 import { ChatInput } from "@/components/ChatInput";
 import { ChatMessage } from "@/components/ChatMessage";
-import { DocumentScopePicker, ScopeChips } from "@/components/DocumentScopePicker";
 import { QuickActions } from "@/components/QuickActions";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useChat } from "@/hooks/useChat";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { STRATEGY_LABELS } from "@/lib/utils";
+import { modKey, STRATEGY_LABELS } from "@/lib/utils";
 import { useActiveMessages, useAppStore } from "@/store/useAppStore";
 
 const SUGGESTIONS = [
@@ -27,6 +25,8 @@ export function ChatPanel({ doc }: { doc: DocumentInfo }) {
   const messages = useActiveMessages();
   const { send, stop, isStreaming } = useChat(doc.doc_id);
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
+  const setPdfOpen = useAppStore((s) => s.setPdfOpen);
+  const pdfOpen = useAppStore((s) => s.pdfOpen);
   const clearChat = useAppStore((s) => s.clearChat);
 
   useKeyboardShortcuts({ onStop: stop });
@@ -89,17 +89,13 @@ export function ChatPanel({ doc }: { doc: DocumentInfo }) {
             </Button>
           </Tooltip>
         )}
-        <DocumentScopePicker doc={doc} />
         <ThemeToggle />
-        <Tooltip content="Open the PDF in a new tab">
-          <Button variant="ghost" size="icon" asChild aria-label="Open PDF in a new tab">
-            <a href={api.fileUrl(doc.doc_id)} target="_blank" rel="noreferrer">
-              <ExternalLink />
-            </a>
+        <Tooltip content={`PDF viewer (${modKey}+J)`}>
+          <Button variant={pdfOpen ? "secondary" : "ghost"} size="icon" onClick={() => setPdfOpen(!pdfOpen)} aria-label="Toggle PDF viewer">
+            <PanelRight />
           </Button>
         </Tooltip>
       </header>
-      <ScopeChips doc={doc} />
 
       <div ref={scrollRef} onScroll={onScroll} className="relative flex-1 overflow-y-auto scrollbar-thin">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-3 py-6 sm:px-6">
@@ -144,7 +140,7 @@ function EmptyChat({ doc, onPick }: { doc: DocumentInfo; onPick: (text: string) 
       <motion.div
         animate={{ rotate: [0, -6, 6, 0] }}
         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        className="grid size-16 place-items-center rounded-3xl bg-brand text-white shadow-2xl shadow-indigo-500/30"
+        className="grid size-16 place-items-center rounded-3xl bg-gradient-to-br from-violet-500 via-fuchsia-500 to-cyan-400 text-white shadow-2xl shadow-violet-500/30"
       >
         <MessageSquareText className="size-7" />
       </motion.div>

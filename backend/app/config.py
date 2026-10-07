@@ -11,7 +11,7 @@ from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
-CHUNKER_VERSION = "chunker-v4"  # bump when chunking/metadata changes so old indexes are rebuilt
+CHUNKER_VERSION = "chunker-v2"  # bump when chunking/metadata changes so old indexes are rebuilt
 
 LLMProvider = Literal["groq", "openai", "gemini"]
 EmbeddingProvider = Literal["huggingface", "openai", "gemini"]
@@ -50,39 +50,24 @@ class Settings(BaseSettings):
     qa_temperature: float = 0.0
     quiz_temperature: float = 0.4
     llm_timeout_s: float = 90.0
-    llm_max_retries: int = 6  # retries (with the provider's retry-after wait) on rate limits / errors
 
     # --- Embeddings ------------------------------------------------------------
     embedding_provider: EmbeddingProvider = "huggingface"
-    # Multilingual (English, Urdu, Roman Urdu, 90+ languages); e5 query/passage prefixes are added automatically.
-    embedding_model: str = "intfloat/multilingual-e5-small"
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     embedding_device: str = "cpu"
-    hf_token: SecretStr | None = None  # optional: higher Hugging Face Hub rate limits
 
     # --- Storage -------------------------------------------------------------
     data_dir: Path = BACKEND_DIR / "data"
     max_upload_mb: int = 50
-    max_pages: int = 100
 
     # --- Retrieval / generation -------------------------------------------------
     retrieval_k: int = 5
-    retrieval_fetch_k: int = 20  # candidates per search method (vector and BM25) before fusion
+    retrieval_fetch_k: int = 20
     mmr_lambda: float = 0.6
-    # Cross-encoder that re-scores fused candidates; empty string disables reranking.
-    reranker_model: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
-    rerank_candidates: int = 20
-
-    # Cache for summaries/notes and history-free questions (SQLite in DATA_DIR).
-    cache_enabled: bool = True
-    cache_ttl_hours: int = 168
     # Documents up to this many characters are given to the QA model in full instead of top-k chunks.
     full_context_max_chars: int = 14_000
     max_history_turns: int = 6
     map_concurrency: int = 3
-    # Summaries/notes read at most this much text (~4 chars per token). The default fits Groq's
-    # free tier (8k tokens/min per model); raise it on paid plans for fuller coverage of long PDFs.
-    summary_max_input_chars: int = 24_000
-    summary_group_chars: int = 12_000
     not_found_message: str = "Ye information document mein nahi mili."
 
     # --- OCR -----------------------------------------------------------------
@@ -100,10 +85,6 @@ class Settings(BaseSettings):
     @property
     def upload_dir(self) -> Path:
         return self.data_dir / "uploads"
-
-    @property
-    def cache_path(self) -> Path:
-        return self.data_dir / "cache.sqlite"
 
     @property
     def registry_path(self) -> Path:

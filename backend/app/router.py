@@ -41,8 +41,7 @@ Params:
 - topic: the specific subject/chapter/section the user restricts the request to, else null.
 - language: "urdu" if written in Urdu script, "hinglish" if Roman Urdu/Hindi mixed with English, else "english".
 - summary_style: "bullet" for key points/bullets, "short" for brief/TL;DR, "detailed" for in-depth.
-- Only set num_questions/difficulty/question_type/summary_style when the user states them; a plain
-  "summarize" has summary_style null."""
+- Only set num_questions/difficulty/question_type when the user states them."""
 
 _router_prompt = ChatPromptTemplate.from_messages(
     [
@@ -180,11 +179,6 @@ class IntentRouter:
         # refuse when the keyword check agrees (greetings, jokes, ...).
         if result.intent == Intent.OUT_OF_SCOPE and fallback.intent != Intent.OUT_OF_SCOPE:
             result.intent = fallback.intent
-
-        # Small models tend to invent "short" for a plain "summarize"; keep a brief style only
-        # when the user's own words asked for it (detailed is the default).
-        if result.params.summary_style == "short" and fallback.params.summary_style != "short":
-            result.params.summary_style = None
 
         # The script detector is more reliable than the model for Urdu vs Roman Urdu.
         if fallback.params.language != "english":

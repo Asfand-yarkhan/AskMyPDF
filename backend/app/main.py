@@ -19,9 +19,7 @@ from app.config import Settings, configure_logging, get_settings
 from app.ingestion.loader import PDFParseError
 from app.ingestion.pipeline import ingest_pdf
 from app.llm import LLMConfigError, llm_configured
-from app.cache import ResponseCache
 from app.orchestrator import ChatOrchestrator
-from app.retrieval import HybridRetriever
 from app.registry import DocumentRegistry
 from app.schemas import ChatRequest, DocumentInfo, GradeRequest, GradeResponse, HealthResponse
 from app.vectorstore import VectorStoreManager
@@ -43,20 +41,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.settings = settings
     app.state.vectorstore = vectorstore
     app.state.registry = DocumentRegistry(settings.registry_path)
-    app.state.retriever = HybridRetriever(settings, vectorstore)
-    app.state.cache = ResponseCache(settings.cache_path, settings.cache_ttl_hours, settings.cache_enabled)
-    app.state.orchestrator = ChatOrchestrator(settings, app.state.retriever, app.state.cache)
+    app.state.orchestrator = ChatOrchestrator(settings, vectorstore)
     logger.info(
-        "AskMyPDF ready: llm=%s/%s configured=%s, reranker=%s, %d documents",
-        settings.llm_provider, settings.resolved_llm_model, llm_configured(),
-        settings.reranker_model or "off", len(app.state.registry.list()),
+        "AskMyPDF ready: llm=%s/%s configured=%s, %d documents",
+        settings.llm_provider, settings.resolved_llm_model, llm_configured(), len(app.state.registry.list()),
     )
-    # Load the reranker and rebuild stale indexes in the background so startup stays fast.
-    warm = asyncio.create_task(asyncio.to_thread(app.state.retriever.reranker.warm_up))
     reindex = asyncio.create_task(_reindex_stale_documents(app))
     yield
     reindex.cancel()
-    warm.cancel()
 
 
 async def _reindex_stale_documents(app: FastAPI) -> None:
@@ -144,8 +136,6 @@ async def health(
         embedding_model=settings.embedding_model,
         llm_configured=llm_configured(),
         documents=len(registry.list()),
-        max_upload_mb=settings.max_upload_mb,
-        max_pages=settings.max_pages,
     )
 
 
@@ -248,7 +238,6 @@ async def document_file(
 
 @app.delete("/documents/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(
-    request: Request,
     doc: DocumentInfo = Depends(get_document),
     registry: DocumentRegistry = Depends(registry_dep),
     vectorstore: VectorStoreManager = Depends(vectorstore_dep),
@@ -257,18 +246,16 @@ async def delete_document(
     await asyncio.to_thread(vectorstore.delete, doc.doc_id)
     (settings.upload_dir / f"{doc.doc_id}.pdf").unlink(missing_ok=True)
     registry.remove(doc.doc_id)
-    dropped = request.app.state.cache.forget_document(doc.doc_id)
-    logger.info("Deleted document %s (%s), %d cached answers", doc.filename, doc.doc_id, dropped)
+    logger.info("Deleted document %s (%s)", doc.filename, doc.doc_id)
 
 
 @app.post("/chat")
 async def chat(request: Request, body: ChatRequest, registry: DocumentRegistry = Depends(registry_dep)) -> StreamingResponse:
     doc = get_document(body.doc_id, registry)
-    extras = [get_document(i, registry) for i in dict.fromkeys(body.extra_doc_ids) if i != doc.doc_id]
     orchestrator: ChatOrchestrator = request.app.state.orchestrator
 
     async def events() -> AsyncIterator[str]:
-        async for event in orchestrator.stream(body, [doc, *extras]):
+        async for event in orchestrator.stream(body, doc):
             if await request.is_disconnected():
                 logger.info("Client disconnected; stopping generation")
                 break

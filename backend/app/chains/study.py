@@ -17,7 +17,7 @@ from app.chains.quiz import select_chunks
 from app.config import Settings
 from app.llm import get_chat_model
 from app.schemas import Flashcard, FlashcardDeck
-from app.retrieval import HybridRetriever
+from app.vectorstore import VectorStoreManager
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ def parse_cards(raw: str) -> list[Flashcard]:
 
 
 async def _batch(docs: Sequence[Document], count: int, language: str, settings: Settings) -> list[Flashcard]:
-    chain = _prompt | get_chat_model(settings.quiz_temperature, "main", "medium") | StrOutputParser()
+    chain = _prompt | get_chat_model(settings.quiz_temperature) | StrOutputParser()
     for attempt in range(2):
         try:
             cards = parse_cards(await chain.ainvoke({
@@ -74,12 +74,12 @@ async def generate_flashcards(
     topic: str | None,
     language: str,
     settings: Settings,
-    retriever: HybridRetriever,
+    vectorstore: VectorStoreManager,
 ) -> AsyncIterator[Event]:
     n = min(num_cards or DEFAULT_CARDS, MAX_CARDS)
     batches = math.ceil(n / CARDS_PER_BATCH)
     yield status("Picking key passages...")
-    docs = await select_chunks(doc_id=doc_id, topic=topic, needed=batches * 4, retriever=retriever)
+    docs = await select_chunks(doc_id=doc_id, topic=topic, needed=batches * 4, vectorstore=vectorstore)
     if not docs:
         yield {"type": "token", "content": settings.not_found_message}
         return

@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { DocumentInfo, FlashcardDeck, Intent, Quiz, RouterParams, SourceChunk } from "@/api/types";
-import { type CardState, type Grade, review } from "@/lib/srs";
 
 export type Theme = "light" | "dark";
 export type View = "landing" | "workspace";
@@ -19,10 +18,6 @@ export interface ChatMessage {
   quiz?: Quiz;
   flashcards?: FlashcardDeck;
   error?: string;
-  /** Documents searched for this answer, in citation order ([Doc 1, ...]). */
-  docIds?: string[];
-  /** Served instantly from the server-side answer cache. */
-  cached?: boolean;
 }
 
 export interface ActiveQuiz {
@@ -38,17 +33,14 @@ interface AppState {
   documentsLoaded: boolean;
   activeDocId: string | null;
   messages: Record<string, ChatMessage[]>;
+  pdfPage: number;
+  pdfJumpKey: number;
   sidebarOpen: boolean;
+  pdfOpen: boolean;
   activeQuiz: ActiveQuiz | null;
   shortcutsOpen: boolean;
-  /** Extra documents searched together with the active one, keyed by active doc id. */
-  extraDocIds: Record<string, string[]>;
-  /** Spaced-repetition state per flashcard, keyed `${messageId}:${cardIndex}`. */
-  srs: Record<string, CardState>;
 
   setTheme: (t: Theme) => void;
-  setExtraDocs: (docId: string, ids: string[]) => void;
-  rateCard: (key: string, grade: Grade) => void;
   toggleTheme: () => void;
   setView: (v: View) => void;
   setDocuments: (docs: DocumentInfo[]) => void;
@@ -58,7 +50,10 @@ interface AppState {
   addMessage: (docId: string, msg: ChatMessage) => void;
   patchMessage: (docId: string, id: string, patch: Partial<ChatMessage> | ((m: ChatMessage) => Partial<ChatMessage>)) => void;
   clearChat: (docId: string) => void;
+  jumpToPage: (page: number) => void;
+  setPdfPage: (page: number) => void;
   setSidebarOpen: (open: boolean) => void;
+  setPdfOpen: (open: boolean) => void;
   openQuiz: (quiz: Quiz, order?: number[]) => void;
   closeQuiz: () => void;
   setShortcutsOpen: (open: boolean) => void;
@@ -80,15 +75,13 @@ export const useAppStore = create<AppState>()(
       documentsLoaded: false,
       activeDocId: null,
       messages: {},
+      pdfPage: 1,
+      pdfJumpKey: 0,
       sidebarOpen: false,
+      pdfOpen: false,
       activeQuiz: null,
       shortcutsOpen: false,
-      extraDocIds: {},
-      srs: {},
 
-      setExtraDocs: (docId, ids) =>
-        set((s) => ({ extraDocIds: { ...s.extraDocIds, [docId]: ids.filter((i) => i !== docId) } })),
-      rateCard: (key, grade) => set((s) => ({ srs: { ...s.srs, [key]: review(s.srs[key], grade) } })),
       setTheme: (theme) => {
         applyTheme(theme);
         set({ theme });
@@ -111,15 +104,10 @@ export const useAppStore = create<AppState>()(
           const documents = s.documents.filter((d) => d.doc_id !== id);
           const messages = { ...s.messages };
           delete messages[id];
-          const extraDocIds = Object.fromEntries(
-            Object.entries(s.extraDocIds)
-              .filter(([key]) => key !== id)
-              .map(([key, ids]) => [key, ids.filter((i) => i !== id)]),
-          );
           const activeDocId = s.activeDocId === id ? (documents[0]?.doc_id ?? null) : s.activeDocId;
-          return { documents, messages, extraDocIds, activeDocId, view: activeDocId ? s.view : "landing" };
+          return { documents, messages, activeDocId, view: activeDocId ? s.view : "landing" };
         }),
-      setActiveDoc: (activeDocId) => set({ activeDocId, view: "workspace", sidebarOpen: false }),
+      setActiveDoc: (activeDocId) => set({ activeDocId, pdfPage: 1, view: "workspace", sidebarOpen: false }),
       addMessage: (docId, msg) =>
         set((s) => ({
           messages: { ...s.messages, [docId]: [...(s.messages[docId] ?? []), msg].slice(-MAX_MESSAGES_PER_DOC) },
@@ -134,7 +122,16 @@ export const useAppStore = create<AppState>()(
           },
         })),
       clearChat: (docId) => set((s) => ({ messages: { ...s.messages, [docId]: [] } })),
+      jumpToPage: (page) =>
+        set((s) => ({
+          pdfPage: Math.max(1, page),
+          pdfJumpKey: s.pdfJumpKey + 1,
+          // On narrow screens the viewer is a drawer: open it so the jump is visible.
+          pdfOpen: window.matchMedia("(min-width: 1280px)").matches ? s.pdfOpen : true,
+        })),
+      setPdfPage: (pdfPage) => set({ pdfPage }),
       setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
+      setPdfOpen: (pdfOpen) => set({ pdfOpen }),
       openQuiz: (quiz, order) => set({ activeQuiz: { quiz, order: order ?? quiz.questions.map((_, i) => i) } }),
       closeQuiz: () => set({ activeQuiz: null }),
       setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
@@ -142,13 +139,7 @@ export const useAppStore = create<AppState>()(
     {
       name: "askmypdf",
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({
-        theme: s.theme,
-        activeDocId: s.activeDocId,
-        messages: s.messages,
-        extraDocIds: s.extraDocIds,
-        srs: s.srs,
-      }),
+      partialize: (s) => ({ theme: s.theme, activeDocId: s.activeDocId, messages: s.messages }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         applyTheme(state.theme);
@@ -163,11 +154,6 @@ export const useAppStore = create<AppState>()(
 
 export const useActiveDocument = () =>
   useAppStore((s) => s.documents.find((d) => d.doc_id === s.activeDocId) ?? null);
-
-const NO_IDS: string[] = [];
-/** Extra documents for the active chat, limited to ones that still exist. */
-export const useExtraDocIds = () =>
-  useAppStore((s) => (s.activeDocId ? (s.extraDocIds[s.activeDocId] ?? NO_IDS) : NO_IDS));
 
 const EMPTY: ChatMessage[] = [];
 export const useActiveMessages = () => useAppStore((s) => (s.activeDocId ? (s.messages[s.activeDocId] ?? EMPTY) : EMPTY));

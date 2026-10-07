@@ -1,35 +1,32 @@
-"""Grounded QA / EXPLAIN: history-aware rewrite -> hybrid retrieval -> cited, streamed answer.
-
-Works on one document or several at once (citations then name the document: [Doc 2, p. 4]).
-"""
+"""Grounded QA / EXPLAIN: history-aware rewrite -> MMR retrieval -> cited, streamed answer."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Sequence
-from pathlib import Path
+from collections.abc import AsyncIterator
 from typing import Literal
+
+from pathlib import Path
 
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 from app.chains.common import (
-    Event, cite_tag, format_context, history_messages, language_instruction, status, to_sources, token,
+    Event, format_context, history_messages, language_instruction, status, to_sources, token,
 )
 from app.config import Settings
 from app.ingestion.loader import load_pdf
 from app.llm import get_chat_model
-from app.retrieval import HybridRetriever
-from app.schemas import ChatTurn, DocumentInfo
+from app.schemas import ChatTurn
+from app.vectorstore import VectorStoreManager
 
 logger = logging.getLogger(__name__)
 
 REWRITE_SYSTEM = """Rewrite the user's latest message as a standalone search query for retrieving passages \
-from a document. Resolve pronouns and references using the chat history and keep key terms, codes and \
-names exactly. Keep the user's language; if it is not English, append " | " and an English translation. \
-Do NOT answer it. Output only the query."""
+from a document. Resolve pronouns and references using the chat history. Write the query in English \
+(translate Urdu / Roman Urdu if needed) and keep key terms. Do NOT answer it. Output only the query."""
 
 _rewrite_prompt = ChatPromptTemplate.from_messages(
     [("system", REWRITE_SYSTEM), MessagesPlaceholder("history"), ("human", "{question}")]
@@ -37,11 +34,11 @@ _rewrite_prompt = ChatPromptTemplate.from_messages(
 
 GROUNDING_RULES = """Rules:
 1. Use ONLY the document excerpts below. Never use outside knowledge and never guess.
-2. Cite every factual statement with the excerpt's tag, copied exactly, e.g. {cite_example}. Use only \
-tags that appear in the excerpts.
+2. Cite the page for every factual statement using the excerpt's tag, e.g. [p. 4]. Use only page numbers \
+that appear in the excerpt headers.
 3. If the excerpts do not contain the answer, reply with exactly: "{not_found}" and nothing else.
 4. Copy numbers, names, dates and quoted terms exactly as written.
-5. Excerpts are in document order and page tags show where each page starts. A value printed \
+5. Excerpts are in document order and [p. X] markers show where each page starts. A value printed \
 after a table or section (totals, status, CGPA, subtotal...) belongs to the table or section ABOVE it, \
 never to the heading that follows it.
 6. For "last", "latest", "most recent", "first", "highest", "total" or "list every" questions, walk \
@@ -91,22 +88,20 @@ async def rewrite_query(question: str, history: list[ChatTurn], language: str, s
     return rewritten if 3 <= len(rewritten) <= 500 else question
 
 
-def page_documents(info: DocumentInfo, settings: Settings) -> list[Document]:
+def page_documents(path: Path, settings: Settings) -> list[Document]:
     """One Document per PDF page (headers/footers removed), for whole-document answers."""
-    path: Path = settings.upload_dir / f"{info.doc_id}.pdf"
     if not path.exists():
         return []
     parsed = load_pdf(
-        path.read_bytes(), info.filename, ocr_enabled=settings.ocr_enabled,
+        path.read_bytes(), path.name, ocr_enabled=settings.ocr_enabled,
         ocr_language=settings.ocr_language, tesseract_cmd=settings.tesseract_cmd,
     )
     return [
         Document(
             page_content=page.text,
             metadata={
-                "chunk_id": f"{info.doc_id}-page-{page.number}", "chunk_index": page.number - 1,
-                "page": page.number, "page_end": page.number, "kind": "page",
-                "has_table": page.table_count > 0, "doc_id": info.doc_id, "filename": info.filename,
+                "chunk_id": f"page-{page.number}", "chunk_index": page.number - 1, "page": page.number,
+                "page_end": page.number, "kind": "page", "has_table": page.table_count > 0,
                 "section": next((b.section for b in page.blocks if b.section), ""),
             },
         )
@@ -115,62 +110,49 @@ def page_documents(info: DocumentInfo, settings: Settings) -> list[Document]:
     ]
 
 
-def format_pages(pages: Sequence[Document], doc_numbers: dict[str, int] | None = None) -> str:
-    """Whole documents as continuous text with a tag at every page start."""
-    parts = []
-    current_doc = None
-    for d in pages:
-        number = (doc_numbers or {}).get(str(d.metadata.get("doc_id")))
-        if number and d.metadata.get("doc_id") != current_doc:
-            current_doc = d.metadata.get("doc_id")
-            parts.append(f"===== Doc {number}: {d.metadata.get('filename', '')} =====")
-        parts.append(f"{cite_tag(d.metadata['page'], number)}\n{d.page_content}")
-    return "\n\n".join(parts)
+def format_pages(pages: list[Document]) -> str:
+    """The whole document as continuous text with a marker at every page start."""
+    return "\n\n".join(f"[p. {d.metadata['page']}]\n{d.page_content}" for d in pages)
 
 
 async def stream_answer(
     *,
-    docs: Sequence[DocumentInfo],
+    doc_id: str,
     question: str,
     history: list[ChatTurn],
     language: str,
     settings: Settings,
-    retriever: HybridRetriever,
+    vectorstore: VectorStoreManager,
     mode: Literal["qa", "explain"] = "qa",
     topic: str | None = None,
+    full_context: bool = False,
 ) -> AsyncIterator[Event]:
-    multi = len(docs) > 1
-    doc_numbers = {d.doc_id: i for i, d in enumerate(docs, start=1)} if multi else None
-    total_chars = sum(d.total_chars for d in docs)
-    passages: list[Document] = []
-    whole = 0 < total_chars <= settings.full_context_max_chars and all(d.total_chars for d in docs)
-    if whole:
-        # Small documents: give the model every page in order (no chunk overlaps or separators),
+    docs: list[Document] = []
+    if full_context:
+        # Small document: give the model every page in order (no chunk overlaps or separators),
         # which beats top-k retrieval for "last", "total" and "compare" questions.
-        yield status("Reading the whole document..." if not multi else f"Reading all {len(docs)} documents...")
-        for info in docs:
-            passages += await asyncio.to_thread(page_documents, info, settings)
-    if not passages:
-        whole = False
+        yield status("Reading the whole document...")
+        docs = await asyncio.to_thread(page_documents, settings.upload_dir / f"{doc_id}.pdf", settings)
+    if not docs:
         if history:
             yield status("Understanding your question...")
         query = await rewrite_query(topic or question, history, language, settings)
-        yield status("Searching the document..." if not multi else f"Searching {len(docs)} documents...")
-        passages = await asyncio.to_thread(
-            retriever.search,
-            [d.doc_id for d in docs],
+        yield status("Searching the document...")
+        docs = await asyncio.to_thread(
+            vectorstore.mmr_search,
+            doc_id,
             query,
-            k=settings.retrieval_k + (2 if mode == "explain" else 0) + (2 if multi else 0),
+            k=settings.retrieval_k + (2 if mode == "explain" else 0),
+            fetch_k=settings.retrieval_fetch_k,
+            lambda_mult=settings.mmr_lambda,
         )
-        # Reading order (per document) helps the model follow tables and sections.
-        order = {d.doc_id: i for i, d in enumerate(docs)}
-        passages.sort(key=lambda p: (order.get(str(p.metadata.get("doc_id")), 0), int(p.metadata.get("chunk_index", 0))))
-    yield {"type": "sources", "sources": to_sources(passages)}
-    if not passages:
+        docs.sort(key=lambda d: int(d.metadata.get("chunk_index", 0)))  # reading order helps the model
+    yield {"type": "sources", "sources": to_sources(docs)}
+    if not docs:
         yield token(settings.not_found_message)
         return
 
-    context = format_pages(passages, doc_numbers) if whole else format_context(passages, doc_numbers)
+    context = format_pages(docs) if full_context and docs[0].metadata.get("kind") == "page" else format_context(docs)
     chain = _answer_prompt(mode) | get_chat_model(settings.qa_temperature) | StrOutputParser()
     async for piece in chain.astream({
         "context": context,
@@ -178,7 +160,6 @@ async def stream_answer(
         "question": question,
         "not_found": settings.not_found_message,
         "language": language_instruction(language),
-        "cite_example": "[Doc 1, p. 4]" if multi else "[p. 4]",
     }):
         if piece:
             yield token(piece)

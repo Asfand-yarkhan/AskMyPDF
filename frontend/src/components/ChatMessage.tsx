@@ -1,8 +1,7 @@
 import { motion } from "framer-motion";
-import { AlertTriangle, Bot, Check, Copy, Files, RotateCcw, User, Zap } from "lucide-react";
-import { memo, useMemo, useState } from "react";
+import { AlertTriangle, Bot, Check, Copy, RotateCcw, User } from "lucide-react";
+import { memo, useState } from "react";
 import type { Intent } from "@/api/types";
-import { CitationContext } from "@/components/CitationContext";
 import { FlashcardDeck } from "@/components/FlashcardDeck";
 import { Markdown } from "@/components/Markdown";
 import { QuizCard } from "@/components/QuizCard";
@@ -32,11 +31,6 @@ export const ChatMessage = memo(function ChatMessage({
   const isUser = message.role === "user";
   const streaming = message.status === "streaming";
   const waiting = streaming && !message.content && !message.quiz && !message.flashcards;
-  const scope = useMemo(
-    () => ({ docIds: message.docIds ?? [], sources: message.sources ?? [] }),
-    [message.docIds, message.sources],
-  );
-  const docCount = message.docIds?.length ?? 1;
 
   return (
     <motion.div
@@ -48,7 +42,7 @@ export const ChatMessage = memo(function ChatMessage({
       <div
         className={cn(
           "mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl",
-          isUser ? "bg-secondary text-foreground" : "bg-brand text-white shadow-md shadow-indigo-500/30",
+          isUser ? "bg-secondary text-foreground" : "bg-gradient-to-br from-violet-500 to-cyan-400 text-white shadow-md shadow-violet-500/30",
         )}
         aria-hidden
       >
@@ -56,29 +50,14 @@ export const ChatMessage = memo(function ChatMessage({
       </div>
 
       {isUser ? (
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tr-md bg-brand px-4 py-2.5 text-sm text-white shadow-lg shadow-indigo-500/20">
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tr-md bg-gradient-to-br from-violet-600 to-fuchsia-600 px-4 py-2.5 text-sm text-white shadow-lg shadow-violet-500/20">
           {message.content}
         </div>
       ) : (
         <div className="group min-w-0 max-w-full flex-1 sm:max-w-[92%]">
-          <CitationContext.Provider value={scope}>
           <div className="glass rounded-2xl rounded-tl-md px-4 py-3">
-            {(INTENT_LABEL[message.intent ?? "QA"] || docCount > 1 || message.cached) && (
-              <div className="mb-2 flex flex-wrap gap-1.5">
-                {message.intent && INTENT_LABEL[message.intent] && (
-                  <Badge>{INTENT_LABEL[message.intent]}{message.params?.topic ? ` · ${message.params.topic}` : ""}</Badge>
-                )}
-                {docCount > 1 && (
-                  <Badge variant="outline">
-                    <Files /> {docCount} documents
-                  </Badge>
-                )}
-                {message.cached && (
-                  <Badge variant="success" title="Answered instantly from the cache">
-                    <Zap /> Instant
-                  </Badge>
-                )}
-              </div>
+            {message.intent && INTENT_LABEL[message.intent] && (
+              <Badge className="mb-2">{INTENT_LABEL[message.intent]}{message.params?.topic ? ` · ${message.params.topic}` : ""}</Badge>
             )}
 
             {waiting && <TypingIndicator text={message.statusText} />}
@@ -87,7 +66,7 @@ export const ChatMessage = memo(function ChatMessage({
               <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-primary align-middle" aria-hidden />
             )}
             {message.quiz && <QuizCard quiz={message.quiz} />}
-            {message.flashcards && <FlashcardDeck deck={message.flashcards} deckId={message.id} />}
+            {message.flashcards && <FlashcardDeck deck={message.flashcards} />}
 
             {message.error && !message.content && !message.quiz && !message.flashcards && (
               <div className="flex items-start gap-2 text-sm text-destructive">
@@ -98,7 +77,6 @@ export const ChatMessage = memo(function ChatMessage({
 
             {message.sources && message.sources.length > 0 && !streaming && <SourcesList sources={message.sources} />}
           </div>
-          </CitationContext.Provider>
 
           {!streaming && (
             <div className="mt-1 flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">

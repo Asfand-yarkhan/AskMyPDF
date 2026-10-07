@@ -23,7 +23,7 @@ from app.llm import get_chat_model
 from app.schemas import (
     Difficulty, GradeItem, GradeResponse, GradeResult, Quiz, QuizQuestion,
 )
-from app.retrieval import HybridRetriever
+from app.vectorstore import VectorStoreManager
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ DIFFICULTY_GUIDE: dict[str, str] = {
 }
 
 TYPE_GUIDE: dict[str, str] = {
-    "mcq": "All questions are type \"mcq\" with exactly 4 options. Do NOT write true/false or short-answer questions.",
+    "mcq": "All questions are type \"mcq\".",
     "true_false": "All questions are type \"true_false\".",
     "short": "All questions are type \"short\".",
     "mixed": "Mix types: about 60% \"mcq\", 20% \"true_false\", 20% \"short\".",
@@ -102,13 +102,14 @@ def _norm(text: str) -> str:
 
 
 async def select_chunks(
-    *, doc_id: str, topic: str | None, needed: int, retriever: HybridRetriever
+    *, doc_id: str, topic: str | None, needed: int, vectorstore: VectorStoreManager
 ) -> list[Document]:
-    """Topic: best-matching chunks (hybrid search). Otherwise: chunks spread evenly over the document."""
     if topic:
-        docs = await asyncio.to_thread(retriever.search, [doc_id], topic, k=needed)
+        docs = await asyncio.to_thread(
+            vectorstore.mmr_search, doc_id, topic, k=needed, fetch_k=needed * 3, lambda_mult=0.5
+        )
         return sorted(docs, key=lambda d: int(d.metadata.get("chunk_index", 0)))
-    all_docs = await asyncio.to_thread(retriever.vectorstore.all_chunks, doc_id)
+    all_docs = await asyncio.to_thread(vectorstore.all_chunks, doc_id)
     return evenly_sample(substantive(all_docs), needed)
 
 
@@ -116,7 +117,7 @@ async def _generate_batch(
     *, docs: Sequence[Document], count: int, difficulty: str, qtype: str, language: str,
     avoid: list[str], settings: Settings,
 ) -> list[QuizQuestion]:
-    chain = _quiz_prompt | get_chat_model(settings.quiz_temperature, "main", "medium") | StrOutputParser()
+    chain = _quiz_prompt | get_chat_model(settings.quiz_temperature) | StrOutputParser()
     inputs = {
         "count": count,
         "difficulty": DIFFICULTY_GUIDE[difficulty],
@@ -130,11 +131,6 @@ async def _generate_batch(
             questions, errors = parse_questions(await chain.ainvoke(inputs))
             if errors:
                 logger.info("Dropped %d invalid quiz items: %s", len(errors), errors[:3])
-            if qtype != "mixed":  # models sometimes mix types anyway; keep only what was asked for
-                wrong = [q for q in questions if q.type != qtype]
-                if wrong:
-                    logger.info("Dropped %d quiz items of the wrong type (wanted %s)", len(wrong), qtype)
-                questions = [q for q in questions if q.type == qtype]
             if questions:
                 return questions
         except Exception as exc:
@@ -151,7 +147,7 @@ async def generate_quiz(
     topic: str | None,
     language: str,
     settings: Settings,
-    retriever: HybridRetriever,
+    vectorstore: VectorStoreManager,
 ) -> AsyncIterator[Event]:
     n = num_questions or DEFAULT_QUESTIONS
     level = difficulty or "medium"
@@ -159,7 +155,7 @@ async def generate_quiz(
     batches = math.ceil(n / QUESTIONS_PER_BATCH)
 
     yield status(f"Picking passages {'about ' + repr(topic) if topic else 'from across the document'}...")
-    docs = await select_chunks(doc_id=doc_id, topic=topic, needed=batches * CHUNKS_PER_BATCH, retriever=retriever)
+    docs = await select_chunks(doc_id=doc_id, topic=topic, needed=batches * CHUNKS_PER_BATCH, vectorstore=vectorstore)
     if not docs:
         yield {"type": "token", "content": settings.not_found_message}
         return

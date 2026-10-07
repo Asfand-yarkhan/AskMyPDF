@@ -18,10 +18,3 @@ backend/data/
 node_modules/
 dist/
 *.tsbuildinfo
-
-# Evaluation scratch data
-backend/eval/.work/
-
-# Pre-downloaded Hugging Face models for faster Docker builds (see backend/Dockerfile)
-backend/hf-cache/*
-!backend/hf-cache/.gitkeep
