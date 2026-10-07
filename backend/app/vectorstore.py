@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from collections.abc import Callable, Sequence
 
@@ -20,16 +21,41 @@ logger = logging.getLogger(__name__)
 EMBED_BATCH = 64
 
 
+class PrefixedEmbeddings(Embeddings):
+    """Adds the instruction prefixes some models were trained with (e5: "query: " / "passage: ")."""
+
+    def __init__(self, inner: Embeddings, *, query_prefix: str, document_prefix: str) -> None:
+        self.inner = inner
+        self.query_prefix = query_prefix
+        self.document_prefix = document_prefix
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return self.inner.embed_documents([self.document_prefix + t for t in texts])
+
+    def embed_query(self, text: str) -> list[float]:
+        return self.inner.embed_query(self.query_prefix + text)
+
+
+def export_hf_token(settings: Settings) -> None:
+    if settings.hf_token:
+        # huggingface_hub reads the token from the environment, not from our settings.
+        os.environ.setdefault("HF_TOKEN", settings.hf_token.get_secret_value())
+
+
 def build_embeddings(settings: Settings) -> Embeddings:
     provider = settings.embedding_provider
     if provider == "huggingface":
+        export_hf_token(settings)
         from langchain_huggingface import HuggingFaceEmbeddings
 
-        return HuggingFaceEmbeddings(
+        embeddings: Embeddings = HuggingFaceEmbeddings(
             model_name=settings.embedding_model,
             model_kwargs={"device": settings.embedding_device},
             encode_kwargs={"normalize_embeddings": True},
         )
+        if "e5" in settings.embedding_model.lower():
+            embeddings = PrefixedEmbeddings(embeddings, query_prefix="query: ", document_prefix="passage: ")
+        return embeddings
     if provider == "openai":
         from langchain_openai import OpenAIEmbeddings
 
@@ -53,6 +79,11 @@ class VectorStoreManager:
         )
         self._stores: dict[str, Chroma] = {}
         self._lock = threading.Lock()
+        # Bumped whenever a document's chunks change, so derived indexes (BM25) know to rebuild.
+        self.generation: dict[str, int] = {}
+
+    def _bump(self, doc_id: str) -> None:
+        self.generation[doc_id] = self.generation.get(doc_id, 0) + 1
 
     @staticmethod
     def collection_name(doc_id: str) -> str:
@@ -92,11 +123,13 @@ class VectorStoreManager:
             )
             if on_progress:
                 on_progress(min(start + EMBED_BATCH, total), total)
+        self._bump(doc_id)
         logger.info("Embedded %d chunks for %s", total, doc_id)
 
     def delete(self, doc_id: str) -> None:
         with self._lock:
             self._stores.pop(doc_id, None)
+            self._bump(doc_id)
         try:
             self.client.delete_collection(self.collection_name(doc_id))
         except Exception:
@@ -110,6 +143,10 @@ class VectorStoreManager:
             for text, meta in zip(raw["documents"], raw["metadatas"])
         ]
         return sorted(docs, key=lambda d: int(d.metadata.get("chunk_index", 0)))
+
+    def similarity_search(self, doc_id: str, query: str, *, k: int) -> list[Document]:
+        k = min(k, self.count(doc_id))
+        return self.store(doc_id).similarity_search(query, k=k) if k > 0 else []
 
     def mmr_search(self, doc_id: str, query: str, *, k: int, fetch_k: int, lambda_mult: float) -> list[Document]:
         store = self.store(doc_id)

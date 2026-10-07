@@ -6,7 +6,6 @@ export const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ["Mod", "K"], label: "Focus the chat input" },
   { keys: ["Mod", "U"], label: "Upload a new PDF" },
   { keys: ["Mod", "B"], label: "Toggle document sidebar" },
-  { keys: ["Mod", "J"], label: "Toggle PDF viewer" },
   { keys: ["Mod", "Shift", "L"], label: "Toggle dark / light mode" },
   { keys: ["Enter"], label: "Send message" },
   { keys: ["Shift", "Enter"], label: "New line" },
@@ -45,9 +44,6 @@ export function useKeyboardShortcuts({ onStop }: { onStop?: () => void } = {}) {
       } else if (mod && key === "b") {
         e.preventDefault();
         s.setSidebarOpen(!s.sidebarOpen);
-      } else if (mod && key === "j") {
-        e.preventDefault();
-        s.setPdfOpen(!s.pdfOpen);
       } else if (mod && e.shiftKey && key === "l") {
         e.preventDefault();
         s.toggleTheme();

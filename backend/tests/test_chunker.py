@@ -161,6 +161,31 @@ def test_totals_after_table_stay_with_table_across_page_break() -> None:
     assert page == "2" and holder.text[int(offset):].startswith("CGPA : 3.68")
 
 
+def test_dangling_label_is_carried_into_next_chunk() -> None:
+    """A chunk ending in "Semester: Fall 2024" must not leave the next chunk's grades unlabeled."""
+    def semester(name: str, cgpa: str) -> list[tuple[str, str]]:
+        return [("text", f"Semester: {name}")] + [
+            ("text", f"Course {i} of {name} | {70 + i} | B") for i in range(6)
+        ] + [("text", f"CGPA : {cgpa}")]
+    blocks = semester("Spring 2024", "3.58") + semester("Fall 2024", "3.39") + semester("Spring 2025", "3.44")
+    doc = make_doc([blocks])
+    chunks = chunk_document(doc, choose_chunk_config(analyze_document(doc)).model_copy(
+        update={"chunk_size": 300, "chunk_overlap": 0}), "d9")
+    assert len(chunks) > 1
+    for name, cgpa in (("Spring 2024", "3.58"), ("Fall 2024", "3.39"), ("Spring 2025", "3.44")):
+        holder = next(c for c in chunks if f"CGPA : {cgpa}" in c.text)
+        assert f"Semester: {name}" in holder.text  # every total stays next to its own label
+
+
+def test_table_header_row_is_not_a_heading() -> None:
+    pdf = fitz.open()
+    page = pdf.new_page()
+    page.insert_text((72, 80), "Course | Marks | Grade", fontsize=11, fontname="hebo")
+    page.insert_text((72, 100), "Operating Systems | 41 | F", fontsize=11)
+    parsed = load_pdf(pdf.tobytes(), "t.pdf", ocr_enabled=False)
+    assert not [b for b in parsed.blocks if b.kind == "heading"]
+
+
 def test_huge_table_split_by_rows_with_header() -> None:
     rows = "\n".join(f"| item {i} | {'x' * 60} |" for i in range(200))
     table = "| Item | Value |\n| --- | --- |\n" + rows

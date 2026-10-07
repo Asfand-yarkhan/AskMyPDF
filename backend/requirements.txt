@@ -16,6 +16,7 @@ langchain-google-genai>=2.0
 
 # --- Vector store / embeddings ---
 chromadb>=0.5
+rank-bm25>=0.2.2
 sentence-transformers>=3.0
 
 # --- PDF parsing / OCR ---

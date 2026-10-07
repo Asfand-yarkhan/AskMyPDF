@@ -38,6 +38,9 @@ export function useChat(docId: string | null) {
         .filter((t): t is ChatTurn => t !== null)
         .slice(-HISTORY_MESSAGES);
 
+      const known = new Set(store.documents.map((d) => d.doc_id));
+      const extraDocIds = (store.extraDocIds[docId] ?? []).filter((id) => known.has(id) && id !== docId);
+
       const assistantId = uid();
       store.addMessage(docId, { id: uid(), role: "user", content: message, createdAt: Date.now() });
       store.addMessage(docId, {
@@ -47,6 +50,7 @@ export function useChat(docId: string | null) {
         createdAt: Date.now(),
         status: "streaming",
         statusText: "Thinking...",
+        docIds: [docId, ...extraDocIds],
       });
 
       const patch = (p: Parameters<typeof store.patchMessage>[2]) =>
@@ -66,7 +70,15 @@ export function useChat(docId: string | null) {
       const onEvent = (event: ChatEvent) => {
         switch (event.type) {
           case "intent":
-            patch({ intent: event.intent, params: event.params });
+            // Summaries, notes, quizzes and flashcards only use the active document.
+            patch({
+              intent: event.intent,
+              params: event.params,
+              ...(["QA", "EXPLAIN"].includes(event.intent) ? {} : { docIds: [docId] }),
+            });
+            break;
+          case "cached":
+            patch({ cached: true });
             break;
           case "status":
             patch({ statusText: event.message });
@@ -96,7 +108,7 @@ export function useChat(docId: string | null) {
       const controller = new AbortController();
       controllerRef.current = controller;
       try {
-        await streamChat({ doc_id: docId, message, history }, onEvent, controller.signal);
+        await streamChat({ doc_id: docId, extra_doc_ids: extraDocIds, message, history }, onEvent, controller.signal);
         if (frame) cancelAnimationFrame(frame);
         flush();
         patch((m) => ({

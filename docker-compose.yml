@@ -1,31 +1,33 @@
+# AskMyPDF: backend (FastAPI) + frontend (nginx serving the React build, proxying /api).
+#   docker compose up --build        -> http://localhost:8080
+# Secrets come from backend/.env at runtime; they are never copied into the images.
+
 services:
   backend:
     build: ./backend
+    image: ${DOCKER_NAMESPACE:-askmypdf}/askmypdf-backend:${TAG:-latest}
     env_file: ./backend/.env
     environment:
       DATA_DIR: /app/data
-      CORS_ORIGINS: http://localhost:5173
+      CORS_ORIGINS: http://localhost:8080
     volumes:
-      - askmypdf-data:/app/data   # Chroma, uploaded PDFs, registry, HF model cache
+      - askmypdf-data:/app/data   # Chroma index, uploaded PDFs, registry, answer cache
     ports:
       - "8000:8000"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 15s
-      timeout: 5s
-      retries: 20
-      start_period: 60s
+    restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       args:
         VITE_API_URL: /api
+    image: ${DOCKER_NAMESPACE:-askmypdf}/askmypdf-frontend:${TAG:-latest}
     ports:
-      - "5173:80"
+      - "8080:80"
     depends_on:
       backend:
         condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   askmypdf-data:

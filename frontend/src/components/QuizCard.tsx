@@ -1,8 +1,10 @@
 import { motion } from "framer-motion";
-import { GraduationCap, Play } from "lucide-react";
+import { GraduationCap, Play, Printer } from "lucide-react";
+import { toast } from "sonner";
 import type { Quiz } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { printQuiz } from "@/lib/export";
 import { useAppStore } from "@/store/useAppStore";
 
 /** Inline summary of a generated quiz; the quiz itself runs in QuizModal. */
@@ -15,10 +17,10 @@ export function QuizCard({ quiz }: { quiz: Quiz }) {
     <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-violet-500/10 via-fuchsia-500/5 to-cyan-500/10 p-4"
+      className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-indigo-500/10 to-cyan-500/10 p-4"
     >
       <div className="flex items-start gap-3">
-        <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-violet-500/30">
+        <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand text-white shadow-lg shadow-indigo-500/30">
           <GraduationCap className="size-5" />
         </div>
         <div className="min-w-0 flex-1">
@@ -35,9 +37,19 @@ export function QuizCard({ quiz }: { quiz: Quiz }) {
           </p>
         </div>
       </div>
-      <Button className="mt-4 w-full sm:w-auto" onClick={() => openQuiz(quiz)}>
-        <Play /> Start quiz
-      </Button>
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <Button className="w-full sm:w-auto" onClick={() => openQuiz(quiz)}>
+          <Play /> Start quiz
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full sm:w-auto"
+          onClick={() => !printQuiz(quiz) && toast.error("Allow pop-ups for this site to print.")}
+          title="Printable quiz with an answer key on a separate page"
+        >
+          <Printer /> Print / PDF
+        </Button>
+      </div>
     </motion.div>
   );
 }
