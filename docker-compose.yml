@@ -5,7 +5,7 @@
 services:
   backend:
     build: ./backend
-    image: ${DOCKER_NAMESPACE:-askmypdf}/askmypdf-backend:${TAG:-latest}
+    image: ${DOCKER_NAMESPACE:-asfandyarkhan}/askmypdf-backend:${TAG:-latest}
     env_file: ./backend/.env
     environment:
       DATA_DIR: /app/data
@@ -21,7 +21,7 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: /api
-    image: ${DOCKER_NAMESPACE:-askmypdf}/askmypdf-frontend:${TAG:-latest}
+    image: ${DOCKER_NAMESPACE:-asfandyarkhan}/askmypdf-frontend:${TAG:-latest}
     ports:
       - "8080:80"
     depends_on:
