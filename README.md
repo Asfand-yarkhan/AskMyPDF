@@ -272,5 +272,3 @@ frontend/
 .github/workflows/ci.yml
 docker-compose.yml
 ```
-
-The original Streamlit prototype (`app.py`) is not used by the new app and can be removed.
