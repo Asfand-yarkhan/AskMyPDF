@@ -108,6 +108,31 @@ its dashboard.
 
 ---
 
+## Deploying: Railway (backend) + Vercel (frontend)
+
+The backend needs **~2 GB RAM** (measured: ~0.9 GB idle, ~1.3 GB during search + reranking, more while
+embedding large PDFs). Choose a Railway plan that allows that, or set `RERANKER_MODEL=` (empty) to save ~0.4 GB.
+
+**Backend on Railway**
+1. New Project → **Deploy from GitHub repo** → `AskMyPDF`.
+2. Service **Settings**: Root Directory `backend` (Railway builds `backend/Dockerfile`); branch `main`;
+   enable **Wait for CI** so failing builds never deploy; Healthcheck Path `/health`.
+3. **Variables**: `GROQ_API_KEY`, `HF_TOKEN` (optional), `RAILWAY_RUN_UID=0` (lets the app write to the
+   volume, which Railway mounts as root), and `CORS_ORIGINS=https://<your-app>.vercel.app` plus optionally
+   `CORS_ORIGIN_REGEX=https://<your-app>(-[a-z0-9-]+)?\.vercel\.app` for Vercel preview links.
+4. **Volume**: add one mounted at `/app/data` (documents, index, cache survive redeploys).
+5. **Networking → Generate Domain**. Railway passes `PORT`; the image listens on it automatically.
+
+**Frontend on Vercel**
+1. **Add New → Project** → import `AskMyPDF`.
+2. Root Directory `frontend` (Vite is detected; build `npm run build`, output `dist`).
+3. Environment variable `VITE_API_URL=https://<your-backend>.up.railway.app` (no trailing slash), then Deploy.
+
+**Updating:** merge into `main` → CI runs → Railway redeploys the backend and Vercel the frontend
+automatically. Branch pushes get Vercel preview links; both dashboards offer one-click rollback.
+
+---
+
 ## Configuration (`backend/.env`)
 
 | Variable | Default | Notes |

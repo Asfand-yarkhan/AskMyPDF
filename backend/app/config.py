@@ -92,6 +92,9 @@ class Settings(BaseSettings):
 
     # --- HTTP ----------------------------------------------------------------
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    # Optional regex for origins that change per deployment, e.g. Vercel previews:
+    # https://askmypdf(-[a-z0-9-]+)?\.vercel\.app
+    cors_origin_regex: str | None = None
 
     @property
     def chroma_dir(self) -> Path:
