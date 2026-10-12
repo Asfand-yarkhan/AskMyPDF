@@ -120,3 +120,9 @@ def test_multi_document_citation_tags() -> None:
     doc = Document(page_content="text", metadata={"doc_id": "bbbb", "page": 3, "filename": "b.pdf"})
     assert format_context([doc], {"aaaa": 1, "bbbb": 2}).startswith("[Doc 2, p. 3]\n(file: b.pdf)")
     assert format_context([doc]).startswith("[p. 3]")
+
+
+def test_reranker_can_be_switched_off_from_a_dashboard() -> None:
+    for value in ("off", "OFF", "none", " ", '" "', "''", ""):
+        assert Settings(_env_file=None, reranker_model=value).reranker_model == ""
+    assert Settings(_env_file=None, reranker_model=" a/b ").reranker_model == "a/b"

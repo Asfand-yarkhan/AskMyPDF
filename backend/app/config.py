@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -95,6 +95,13 @@ class Settings(BaseSettings):
     # Optional regex for origins that change per deployment, e.g. Vercel previews:
     # https://askmypdf(-[a-z0-9-]+)?\.vercel\.app
     cors_origin_regex: str | None = None
+
+    @field_validator("reranker_model")
+    @classmethod
+    def _reranker_off(cls, value: str) -> str:
+        # Hosting dashboards can't always store an empty value, so "off"/"none"/quotes also disable it.
+        value = value.strip().strip("\"'").strip()
+        return "" if value.lower() in {"", "none", "off", "false", "0"} else value
 
     @property
     def chroma_dir(self) -> Path:
