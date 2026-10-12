@@ -26,7 +26,7 @@ RUN useradd --create-home --uid 10001 askmypdf \
 USER askmypdf
 
 # Bake the embedding + reranker models into the image (own layer: code changes don't re-download).
-# Override with --build-arg, or set PRELOAD_MODELS=false for a smaller image that downloads at first start.
+# Override with --build-arg (a blank RERANKER_MODEL skips the reranker), or set PRELOAD_MODELS=false for a smaller image that downloads at first start.
 # Optional: models already downloaded on the build machine can be placed in backend/hf-cache/
 # (same layout as ~/.cache/huggingface/hub) to skip downloading them again; the folder may be empty.
 COPY --chown=askmypdf:askmypdf hf-cache/ /opt/hf-cache/hub/
@@ -36,7 +36,7 @@ ARG RERANKER_MODEL=cross-encoder/mmarco-mMiniLMv2-L12-H384-v1
 RUN if [ "$PRELOAD_MODELS" = "true" ]; then python -c "\
 from huggingface_hub import snapshot_download; \
 pats = ['*.json', '*.txt', 'model.safetensors', 'sentencepiece.bpe.model', 'tokenizer*', '1_Pooling/*']; \
-[snapshot_download(m, allow_patterns=pats) for m in ['$EMBEDDING_MODEL', '$RERANKER_MODEL'] if m]"; fi
+[snapshot_download(m.strip(), allow_patterns=pats) for m in ['$EMBEDDING_MODEL', '$RERANKER_MODEL'] if m.strip()]"; fi
 
 COPY app ./app
 
