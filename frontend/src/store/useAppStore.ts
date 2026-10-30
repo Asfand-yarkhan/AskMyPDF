@@ -45,7 +45,11 @@ interface AppState {
   extraDocIds: Record<string, string[]>;
   /** Spaced-repetition state per flashcard, keyed `${messageId}:${cardIndex}`. */
   srs: Record<string, CardState>;
+  /** Account the saved chats belong to; a different account starts clean. */
+  ownerUid: string | null;
+  ownerIsGuest: boolean;
 
+  adoptUser: (uid: string, isGuest: boolean) => void;
   setTheme: (t: Theme) => void;
   setExtraDocs: (docId: string, ids: string[]) => void;
   rateCard: (key: string, grade: Grade) => void;
@@ -58,6 +62,7 @@ interface AppState {
   addMessage: (docId: string, msg: ChatMessage) => void;
   patchMessage: (docId: string, id: string, patch: Partial<ChatMessage> | ((m: ChatMessage) => Partial<ChatMessage>)) => void;
   clearChat: (docId: string) => void;
+  removeMessages: (docId: string, ids: string[]) => void;
   setSidebarOpen: (open: boolean) => void;
   openQuiz: (quiz: Quiz, order?: number[]) => void;
   closeQuiz: () => void;
@@ -85,7 +90,29 @@ export const useAppStore = create<AppState>()(
       shortcutsOpen: false,
       extraDocIds: {},
       srs: {},
+      ownerUid: null,
+      ownerIsGuest: false,
 
+      adoptUser: (uid, isGuest) =>
+        set((s) => {
+          if (s.ownerUid === uid) return { ownerIsGuest: isGuest };
+          // A guest signing in keeps their chats; any other switch (sign out, another
+          // account on a shared computer) must not show the previous person's history.
+          const keep = s.ownerUid === null || (s.ownerIsGuest && !isGuest);
+          if (keep) return { ownerUid: uid, ownerIsGuest: isGuest };
+          return {
+            ownerUid: uid,
+            ownerIsGuest: isGuest,
+            messages: {},
+            srs: {},
+            extraDocIds: {},
+            activeDocId: null,
+            documents: [],
+            documentsLoaded: false,
+            view: "landing",
+            activeQuiz: null,
+          };
+        }),
       setExtraDocs: (docId, ids) =>
         set((s) => ({ extraDocIds: { ...s.extraDocIds, [docId]: ids.filter((i) => i !== docId) } })),
       rateCard: (key, grade) => set((s) => ({ srs: { ...s.srs, [key]: review(s.srs[key], grade) } })),
@@ -134,6 +161,10 @@ export const useAppStore = create<AppState>()(
           },
         })),
       clearChat: (docId) => set((s) => ({ messages: { ...s.messages, [docId]: [] } })),
+      removeMessages: (docId, ids) =>
+        set((s) => ({
+          messages: { ...s.messages, [docId]: (s.messages[docId] ?? []).filter((m) => !ids.includes(m.id)) },
+        })),
       setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
       openQuiz: (quiz, order) => set({ activeQuiz: { quiz, order: order ?? quiz.questions.map((_, i) => i) } }),
       closeQuiz: () => set({ activeQuiz: null }),
@@ -148,6 +179,8 @@ export const useAppStore = create<AppState>()(
         messages: s.messages,
         extraDocIds: s.extraDocIds,
         srs: s.srs,
+        ownerUid: s.ownerUid,
+        ownerIsGuest: s.ownerIsGuest,
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;

@@ -9,7 +9,11 @@ export default {
     container: { center: true, padding: "1rem" },
     extend: {
       fontFamily: {
-        sans: ['"Inter Variable"', "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ['"Geist Variable"', "ui-sans-serif", "system-ui", "sans-serif"],
+      },
+      transitionTimingFunction: {
+        "out-expo": "var(--ease-out)",
+        "in-out-quart": "var(--ease-in-out)",
       },
       colors: {
         border: "hsl(var(--border))",
@@ -23,6 +27,7 @@ export default {
         accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
         destructive: { DEFAULT: "hsl(var(--destructive))", foreground: "hsl(var(--destructive-foreground))" },
         success: { DEFAULT: "hsl(var(--success))", foreground: "hsl(var(--success-foreground))" },
+        warning: "hsl(var(--warning))",
         card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
         popover: { DEFAULT: "hsl(var(--popover))", foreground: "hsl(var(--popover-foreground))" },
       },
@@ -33,6 +38,7 @@ export default {
       },
       keyframes: {
         shimmer: { "100%": { transform: "translateX(100%)" } },
+        rise: { from: { opacity: "0", transform: "translateY(8px)" } },
         "pulse-ring": {
           "0%": { boxShadow: "0 0 0 0 hsl(var(--primary) / 0.55)" },
           "100%": { boxShadow: "0 0 0 14px hsl(var(--primary) / 0)" },
@@ -40,6 +46,7 @@ export default {
       },
       animation: {
         shimmer: "shimmer 1.6s infinite",
+        rise: "rise var(--dur-slow) var(--ease-out) both",
         "pulse-ring": "pulse-ring 1.2s ease-out 2",
       },
     },

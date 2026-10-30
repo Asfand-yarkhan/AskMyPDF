@@ -7,6 +7,18 @@ export default defineConfig({
   plugins: [react()],
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
   test: { environment: "node", include: ["src/**/*.test.ts"] },
+  build: {
+    rollupOptions: {
+      // Vendor code changes rarely, so it stays cached across app deploys.
+      output: {
+        manualChunks: {
+          firebase: ["firebase/app", "firebase/auth"],
+          react: ["react", "react-dom", "framer-motion"],
+          markdown: ["react-markdown", "remark-gfm"],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

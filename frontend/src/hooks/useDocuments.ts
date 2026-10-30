@@ -3,9 +3,12 @@ import { toast } from "sonner";
 import { api } from "@/api/client";
 import type { Health } from "@/api/types";
 import { useAppStore } from "@/store/useAppStore";
+import { useAuthStore } from "@/store/useAuthStore";
 
+/** Loads the signed-in user's documents, again whenever the account changes. */
 export function useDocuments() {
   const setDocuments = useAppStore((s) => s.setDocuments);
+  const uid = useAuthStore((s) => (s.status === "ready" ? s.user?.uid : null));
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -19,8 +22,8 @@ export function useDocuments() {
   }, [setDocuments]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (uid) void refresh();
+  }, [uid, refresh]);
 
   return { refresh, error };
 }

@@ -56,7 +56,7 @@ export function DocumentScopePicker({ doc }: { doc: DocumentInfo }) {
             initial={{ opacity: 0, y: -6, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
-            className="glass absolute right-0 top-full z-30 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-2xl bg-popover/95 p-3"
+            className="surface absolute right-0 top-full z-30 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-2xl bg-popover/95 p-3"
             role="dialog"
             aria-label="Documents to search"
           >

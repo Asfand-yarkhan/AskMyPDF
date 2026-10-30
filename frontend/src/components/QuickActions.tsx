@@ -30,7 +30,7 @@ export function QuickActions({ onSend, disabled }: { onSend: (text: string) => v
             onClick={() => (prompt ? onSend(prompt) : setQuizOpen((o) => !o))}
             aria-expanded={prompt ? undefined : quizOpen}
             className={cn(
-              "focus-ring glass inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors hover:border-primary/40 hover:text-primary disabled:pointer-events-none disabled:opacity-50",
+              "focus-ring surface inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors hover:border-primary/40 hover:text-primary disabled:pointer-events-none disabled:opacity-50",
               !prompt && quizOpen && "border-primary/50 text-primary",
             )}
           >
@@ -91,7 +91,7 @@ function QuizOptions({ onGenerate, onClose }: { onGenerate: (prompt: string) => 
       initial={{ opacity: 0, y: 8, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 8, scale: 0.97 }}
-      className="glass absolute bottom-full left-0 z-30 mb-2 w-[min(22rem,calc(100vw-2rem))] rounded-2xl bg-card/95 p-4"
+      className="surface absolute bottom-full left-0 z-30 mb-2 w-[min(22rem,calc(100vw-2rem))] rounded-2xl bg-card/95 p-4"
       role="dialog"
       aria-label="Quiz options"
       onKeyDown={(e) => e.key === "Escape" && (e.stopPropagation(), onClose())}

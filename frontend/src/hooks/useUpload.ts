@@ -1,8 +1,9 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import { MAX_UPLOAD_MB, uploadPdf } from "@/api/client";
+import { ApiError, MAX_UPLOAD_MB, uploadPdf } from "@/api/client";
 import type { DocumentInfo, UploadStage } from "@/api/types";
 import { useAppStore } from "@/store/useAppStore";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export interface UploadState {
   file: File | null;
@@ -66,11 +67,16 @@ export function useUpload() {
         const { document, reused } = await promise;
         upsertDocument(document);
         setState((s) => ({ ...s, stage: "done", progress: 1, result: document, reused }));
-        toast.success(reused ? "Already indexed. Ready instantly." : "Document ready!", {
+        toast.success(reused ? "Already indexed. Ready now." : "Document ready", {
           description: `${document.chunk_count} chunks · ${document.chunk_config.strategy} strategy (${document.chunk_config.chunk_size}/${document.chunk_config.chunk_overlap})`,
         });
       } catch (err) {
         const message = (err as Error).message;
+        if (err instanceof ApiError && (err.code === "signup_required" || err.code === "email_unverified")) {
+          setState(INITIAL);
+          useAuthStore.getState().openDialog("upload", err.code === "email_unverified" ? "verify" : "signup");
+          return;
+        }
         setState((s) => ({ ...s, stage: "error", error: message }));
         toast.error(message);
       } finally {

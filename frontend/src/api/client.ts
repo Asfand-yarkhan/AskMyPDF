@@ -5,6 +5,7 @@ import type {
   GradeItem,
   GradeResponse,
   Health,
+  Me,
   UploadEvent,
 } from "./types";
 
@@ -14,31 +15,54 @@ export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.rep
 export const MAX_UPLOAD_MB = 50;
 export const MAX_PAGES = 100;
 
+/** Codes the backend attaches to errors the UI should act on, not just show. */
+export type ApiErrorCode = "trial_exhausted" | "signup_required" | "email_unverified" | "document_limit";
+
 export class ApiError extends Error {
   constructor(
     message: string,
     public status = 0,
+    public code?: ApiErrorCode,
   ) {
     super(message);
   }
 }
 
-async function errorFrom(res: Response): Promise<ApiError> {
-  let message = `Request failed (${res.status})`;
-  try {
-    const body = await res.json();
-    if (typeof body?.detail === "string") message = body.detail;
-    else if (Array.isArray(body?.detail)) message = body.detail.map((d: { msg: string }) => d.msg).join(", ");
-  } catch {
-    /* non-JSON error body */
+let tokenProvider: (() => Promise<string | null>) | null = null;
+
+/** Registered by the auth module: every request carries the Firebase ID token. */
+export function setTokenProvider(provider: () => Promise<string | null>) {
+  tokenProvider = provider;
+}
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = tokenProvider ? await tokenProvider() : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export function parseErrorBody(status: number, body: unknown): ApiError {
+  const detail = (body as { detail?: unknown } | null)?.detail;
+  if (typeof detail === "string") return new ApiError(detail, status);
+  if (Array.isArray(detail)) return new ApiError(detail.map((d: { msg: string }) => d.msg).join(", "), status);
+  if (detail && typeof detail === "object" && "message" in detail) {
+    const { message, code } = detail as { message: string; code?: ApiErrorCode };
+    return new ApiError(message, status, code);
   }
-  return new ApiError(message, res.status);
+  return new ApiError(`Request failed (${status})`, status);
+}
+
+async function errorFrom(res: Response): Promise<ApiError> {
+  try {
+    return parseErrorBody(res.status, await res.json());
+  } catch {
+    return parseErrorBody(res.status, null); // non-JSON error body
+  }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, init);
+    res = await fetch(`${API_URL}${path}`, { ...init, headers: { ...(await authHeaders()), ...init?.headers } });
   } catch {
     throw new ApiError("Cannot reach the AskMyPDF server. Is the backend running?");
   }
@@ -48,9 +72,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<Health>("/health"),
+  me: () => request<Me>("/me"),
+  claim: (guestToken: string) =>
+    request<{ moved: number }>("/me/claim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guest_token: guestToken }),
+    }),
   listDocuments: () => request<DocumentInfo[]>("/documents"),
   deleteDocument: (id: string) => request<void>(`/documents/${id}`, { method: "DELETE" }),
-  fileUrl: (id: string) => `${API_URL}/documents/${id}/file`,
+  /** Opened in a new tab, which can't send headers: the signed token proves access. */
+  fileUrl: (doc: Pick<DocumentInfo, "doc_id" | "file_token">) =>
+    `${API_URL}/documents/${doc.doc_id}/file${doc.file_token ? `?token=${encodeURIComponent(doc.file_token)}` : ""}`,
   grade: (items: GradeItem[], docId?: string) =>
     request<GradeResponse>("/quiz/grade", {
       method: "POST",
@@ -92,7 +125,7 @@ export async function streamChat(
   try {
     res = await fetch(`${API_URL}/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+      headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...(await authHeaders()) },
       body: JSON.stringify(body),
       signal,
     });
@@ -120,6 +153,7 @@ export function uploadPdf(
   handlers: { onUploadProgress: (fraction: number) => void; onEvent: (event: UploadEvent) => void },
 ): { promise: Promise<{ document: DocumentInfo; reused: boolean }>; abort: () => void } {
   const xhr = new XMLHttpRequest();
+  let aborted = false;
   const promise = new Promise<{ document: DocumentInfo; reused: boolean }>((resolve, reject) => {
     let seen = 0;
     let result: { document: DocumentInfo; reused: boolean } | null = null;
@@ -142,13 +176,13 @@ export function uploadPdf(
     xhr.onprogress = consume;
     xhr.onload = () => {
       if (xhr.status >= 400) {
-        let message = `Upload failed (${xhr.status})`;
+        let body: unknown = null;
         try {
-          message = JSON.parse(xhr.responseText).detail ?? message;
+          body = JSON.parse(xhr.responseText);
         } catch {
-          /* ignore */
+          /* non-JSON error body */
         }
-        return reject(new ApiError(message, xhr.status));
+        return reject(parseErrorBody(xhr.status, body));
       }
       consume();
       if (result) resolve(result);
@@ -159,7 +193,17 @@ export function uploadPdf(
 
     const form = new FormData();
     form.append("file", file);
-    xhr.send(form);
+    void authHeaders().then((headers) => {
+      if (aborted) return reject(new ApiError("Upload cancelled."));
+      for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value);
+      xhr.send(form);
+    }, reject);
   });
-  return { promise, abort: () => xhr.abort() };
+  return {
+    promise,
+    abort: () => {
+      aborted = true;
+      xhr.abort();
+    },
+  };
 }

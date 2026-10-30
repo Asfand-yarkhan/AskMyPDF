@@ -17,10 +17,10 @@ export function QuizCard({ quiz }: { quiz: Quiz }) {
     <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-indigo-500/10 to-cyan-500/10 p-4"
+      className="relative overflow-hidden rounded-2xl border border-primary/20 bg-primary/[0.04] p-4"
     >
       <div className="flex items-start gap-3">
-        <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand text-white shadow-lg shadow-indigo-500/30">
+        <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground">
           <GraduationCap className="size-5" />
         </div>
         <div className="min-w-0 flex-1">

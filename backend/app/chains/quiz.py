@@ -212,7 +212,7 @@ async def generate_quiz(
 
 def _grade_objective(item: GradeItem) -> GradeResult:
     correct = _norm(item.user_answer) == _norm(item.correct_answer)
-    feedback = "Correct!" if correct else f"The correct answer is: {item.correct_answer}"
+    feedback = "Correct." if correct else f"The correct answer is: {item.correct_answer}"
     return GradeResult(index=0, correct=correct, score=1.0 if correct else 0.0, feedback=feedback)
 
 

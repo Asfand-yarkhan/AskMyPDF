@@ -12,7 +12,7 @@ export function Progress({ value, className, shimmer = false }: { value: number;
       className={cn("relative h-2 w-full overflow-hidden rounded-full bg-secondary", className)}
     >
       <motion.div
-        className="relative h-full overflow-hidden rounded-full bg-brand"
+        className="relative h-full overflow-hidden rounded-full bg-primary"
         initial={false}
         animate={{ width: `${pct}%` }}
         transition={{ type: "spring", stiffness: 120, damping: 24 }}

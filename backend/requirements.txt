@@ -4,6 +4,7 @@ uvicorn[standard]>=0.30
 python-multipart>=0.0.9
 pydantic>=2.7,<3
 pydantic-settings>=2.3
+google-auth>=2.29             # verifies Firebase ID tokens (no service account needed)
 
 # --- LangChain (LCEL) ---
 langchain-core>=0.3,<2

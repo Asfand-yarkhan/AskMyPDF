@@ -207,7 +207,7 @@ export function QuizModal() {
                   >
                     <p className="flex items-center gap-2 font-semibold">
                       {answer.correct ? <Check className="size-4 text-success" /> : <X className="size-4 text-destructive" />}
-                      {answer.correct ? "Correct!" : question.type === "short" ? "Not quite" : "Incorrect"}
+                      {answer.correct ? "Correct" : question.type === "short" ? "Not quite" : "Incorrect"}
                       {question.type === "short" && <span className="font-normal text-muted-foreground">({Math.round(answer.score * 100)}%)</span>}
                     </p>
                     {answer.feedback && <p className="mt-1.5">{answer.feedback}</p>}
@@ -263,7 +263,7 @@ function Results({
   onRetryWrong: () => void; onRestart: () => void; onClose: () => void;
 }) {
   const pct = total ? Math.round((score / total) * 100) : 0;
-  const message = pct >= 90 ? "Outstanding!" : pct >= 70 ? "Great job!" : pct >= 50 ? "Good effort!" : "Keep practicing!";
+  const message = pct >= 90 ? "Excellent result" : pct >= 70 ? "Solid result" : pct >= 50 ? "Halfway there" : "Worth another pass";
   const radius = 54;
   const circumference = 2 * Math.PI * radius;
 

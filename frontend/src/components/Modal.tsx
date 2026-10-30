@@ -45,7 +45,7 @@ export function Modal({ open, onClose, title, children, className, closeOnEsc = 
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
+          <div className="absolute inset-0 bg-[hsl(var(--shadow)/0.45)]" onClick={onClose} aria-hidden />
           <motion.div
             ref={panelRef}
             role="dialog"
@@ -53,7 +53,7 @@ export function Modal({ open, onClose, title, children, className, closeOnEsc = 
             aria-label={title}
             tabIndex={-1}
             className={cn(
-              "glass relative max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-card/90 p-5 outline-none scrollbar-thin sm:max-w-lg sm:rounded-3xl sm:p-6",
+              "surface relative max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl p-5 outline-none scrollbar-thin sm:max-w-lg sm:rounded-2xl sm:p-6",
               className,
             )}
             initial={{ y: 40, opacity: 0, scale: 0.98 }}

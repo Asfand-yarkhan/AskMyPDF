@@ -96,6 +96,21 @@ class Settings(BaseSettings):
     # https://askmypdf(-[a-z0-9-]+)?\.vercel\.app
     cors_origin_regex: str | None = None
 
+    # --- Accounts (Firebase Authentication) ------------------------------------
+    # Unset = no sign-in: a single local user owns every document (local development).
+    firebase_project_id: str | None = None
+    guest_trials: int = 3  # AI requests a visitor can make before signing up
+    guest_ip_trials_per_day: int = 10  # stops fresh trials by clearing browser data
+    guest_max_documents: int = 1
+    user_max_documents: int = 50
+    # Signs the short-lived links that open PDFs in a new tab; generated into DATA_DIR if unset.
+    file_url_secret: SecretStr | None = None
+    file_url_ttl_hours: int = 12
+
+    @property
+    def auth_enabled(self) -> bool:
+        return bool(self.firebase_project_id)
+
     @field_validator("reranker_model")
     @classmethod
     def _reranker_off(cls, value: str) -> str:
@@ -114,6 +129,10 @@ class Settings(BaseSettings):
     @property
     def cache_path(self) -> Path:
         return self.data_dir / "cache.sqlite"
+
+    @property
+    def usage_path(self) -> Path:
+        return self.data_dir / "usage.sqlite"
 
     @property
     def registry_path(self) -> Path:

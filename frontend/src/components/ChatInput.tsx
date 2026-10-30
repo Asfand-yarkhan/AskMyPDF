@@ -36,7 +36,7 @@ export function ChatInput({
   };
 
   return (
-    <div className="glass rounded-2xl p-2 transition-shadow focus-within:ring-2 focus-within:ring-primary/40">
+    <div className="surface rounded-2xl p-2 transition-shadow focus-within:ring-2 focus-within:ring-primary/40">
       <div className="flex items-end gap-2">
         <label htmlFor={CHAT_INPUT_ID} className="sr-only">
           Ask about the document

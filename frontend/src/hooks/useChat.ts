@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { streamChat } from "@/api/client";
+import { ApiError, streamChat } from "@/api/client";
 import type { ChatEvent, ChatTurn } from "@/api/types";
 import { uid } from "@/lib/utils";
 import { type ChatMessage, useAppStore } from "@/store/useAppStore";
+import { isLimited, promptToUnlock, useAuthStore } from "@/store/useAuthStore";
 
 const HISTORY_MESSAGES = 12;
 
@@ -32,6 +33,11 @@ export function useChat(docId: string | null) {
       if (!docId || !message) return;
       const store = useAppStore.getState();
       if ((store.messages[docId] ?? []).some((m) => m.status === "streaming")) return;
+      const auth = useAuthStore.getState();
+      if (isLimited(auth.user) && auth.trials && auth.trials.remaining <= 0) {
+        promptToUnlock("trial");
+        return;
+      }
 
       const history = (store.messages[docId] ?? [])
         .map(toTurn)
@@ -42,7 +48,8 @@ export function useChat(docId: string | null) {
       const extraDocIds = (store.extraDocIds[docId] ?? []).filter((id) => known.has(id) && id !== docId);
 
       const assistantId = uid();
-      store.addMessage(docId, { id: uid(), role: "user", content: message, createdAt: Date.now() });
+      const userId = uid();
+      store.addMessage(docId, { id: userId, role: "user", content: message, createdAt: Date.now() });
       store.addMessage(docId, {
         id: assistantId,
         role: "assistant",
@@ -76,6 +83,9 @@ export function useChat(docId: string | null) {
               params: event.params,
               ...(["QA", "EXPLAIN"].includes(event.intent) ? {} : { docIds: [docId] }),
             });
+            break;
+          case "usage":
+            useAuthStore.getState().setTrials({ remaining: event.trials_remaining, limit: event.trials_limit });
             break;
           case "cached":
             patch({ cached: true });
@@ -120,6 +130,13 @@ export function useChat(docId: string | null) {
         flush();
         if ((err as Error).name === "AbortError") {
           patch((m) => ({ status: "done", statusText: undefined, content: m.content || "_Stopped._" }));
+        } else if (err instanceof ApiError && (err.code === "trial_exhausted" || err.code === "email_unverified")) {
+          // Not a failed answer: take the question back and ask the guest to sign up.
+          useAppStore.getState().removeMessages(docId, [userId, assistantId]);
+          const auth = useAuthStore.getState();
+          auth.setTrials({ remaining: 0, limit: auth.trials?.limit ?? 3 });
+          if (err.code === "email_unverified") auth.openDialog("trial", "verify");
+          else promptToUnlock("trial");
         } else {
           const msg = (err as Error).message || "Something went wrong.";
           patch({ status: "error", statusText: undefined, error: msg });
