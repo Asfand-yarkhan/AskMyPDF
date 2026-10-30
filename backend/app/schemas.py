@@ -327,3 +327,28 @@ class HealthResponse(BaseModel):
     documents: int
     max_upload_mb: int
     max_pages: int
+    auth_enabled: bool = False
+
+
+class DocumentView(DocumentInfo):
+    """A document as returned to its owner, with a signed token for opening the PDF file."""
+
+    file_token: str = ""
+
+
+class MeResponse(BaseModel):
+    uid: str
+    email: str | None = None
+    is_guest: bool
+    email_verified: bool = True
+    auth_enabled: bool
+    # Guests and unverified accounts only (None for members): free AI requests used / allowed / left.
+    trials_used: int | None = None
+    trials_limit: int | None = None
+    trials_remaining: int | None = None
+
+
+class ClaimRequest(BaseModel):
+    """The previous guest session's ID token, so its documents move to the signed-in account."""
+
+    guest_token: str = Field(min_length=20, max_length=4096)

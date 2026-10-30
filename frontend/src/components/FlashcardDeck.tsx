@@ -133,7 +133,7 @@ export function FlashcardDeck({ deck, deckId }: { deck: Deck; deckId: string }) 
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
-                className="glass absolute right-0 top-full z-20 mt-1 w-48 rounded-xl bg-popover/95 p-1 text-sm"
+                className="surface absolute right-0 top-full z-20 mt-1 w-48 rounded-xl bg-popover/95 p-1 text-sm"
                 role="menu"
               >
                 {[
@@ -188,7 +188,7 @@ export function FlashcardDeck({ deck, deckId }: { deck: Deck; deckId: string }) 
                   animate={{ rotateY: flipped ? 180 : 0 }}
                   transition={{ type: "spring", stiffness: 260, damping: 26 }}
                 >
-                  <div className="backface-hidden absolute inset-0 flex flex-col items-center justify-center rounded-2xl border border-primary/20 bg-gradient-to-br from-indigo-500/15 via-card to-cyan-500/10 p-6 text-center shadow-lg">
+                  <div className="backface-hidden absolute inset-0 flex flex-col items-center justify-center rounded-2xl border border-primary/20 bg-card p-6 text-center shadow-lg">
                     <span className="text-[11px] font-semibold uppercase tracking-widest text-primary">Question</span>
                     <p className="mt-3 text-lg font-semibold leading-snug">{card.front}</p>
                     <span className="absolute bottom-3 flex items-center gap-1 text-xs text-muted-foreground">

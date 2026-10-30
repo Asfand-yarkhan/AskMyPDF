@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowDown, BookOpen, Eraser, ExternalLink, GraduationCap, Layers, ListChecks, Menu, MessageSquareText, Sparkles } from "lucide-react";
+import { ArrowDown, BookOpen, Eraser, ExternalLink, GraduationCap, Layers, ListChecks, LockKeyhole, MailWarning, Menu, MessageSquareText, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import type { DocumentInfo } from "@/api/types";
+import { AccountMenu, TrialMeter } from "@/components/AccountMenu";
 import { ChatInput } from "@/components/ChatInput";
 import { ChatMessage } from "@/components/ChatMessage";
 import { DocumentScopePicker, ScopeChips } from "@/components/DocumentScopePicker";
@@ -15,6 +16,7 @@ import { useChat } from "@/hooks/useChat";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { STRATEGY_LABELS } from "@/lib/utils";
 import { useActiveMessages, useAppStore } from "@/store/useAppStore";
+import { useAuthStore, useTrialsExhausted } from "@/store/useAuthStore";
 
 const SUGGESTIONS = [
   { icon: Sparkles, title: "Summarize", text: "Give me a detailed summary of this document" },
@@ -28,6 +30,7 @@ export function ChatPanel({ doc }: { doc: DocumentInfo }) {
   const { send, stop, isStreaming } = useChat(doc.doc_id);
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
   const clearChat = useAppStore((s) => s.clearChat);
+  const trialsUsedUp = useTrialsExhausted();
 
   useKeyboardShortcuts({ onStop: stop });
 
@@ -93,11 +96,14 @@ export function ChatPanel({ doc }: { doc: DocumentInfo }) {
         <ThemeToggle />
         <Tooltip content="Open the PDF in a new tab">
           <Button variant="ghost" size="icon" asChild aria-label="Open PDF in a new tab">
-            <a href={api.fileUrl(doc.doc_id)} target="_blank" rel="noreferrer">
+            <a href={api.fileUrl(doc)} target="_blank" rel="noreferrer">
               <ExternalLink />
             </a>
           </Button>
         </Tooltip>
+        <div className="ml-1 hidden sm:block">
+          <AccountMenu compact />
+        </div>
       </header>
       <ScopeChips doc={doc} />
 
@@ -131,23 +137,66 @@ export function ChatPanel({ doc }: { doc: DocumentInfo }) {
             </motion.div>
           )}
         </AnimatePresence>
-        <QuickActions onSend={sendAndFollow} disabled={isStreaming} />
-        <ChatInput onSend={sendAndFollow} onStop={stop} streaming={isStreaming} />
+        {trialsUsedUp ? (
+          <SignUpPrompt />
+        ) : (
+          <>
+            <QuickActions onSend={sendAndFollow} disabled={isStreaming} />
+            <ChatInput onSend={sendAndFollow} onStop={stop} streaming={isStreaming} />
+            <TrialMeter className="justify-center pt-0.5" />
+          </>
+        )}
       </div>
     </section>
+  );
+}
+
+/** Replaces the composer once a guest's free questions are used. */
+function SignUpPrompt() {
+  const openDialog = useAuthStore((s) => s.openDialog);
+  const limit = useAuthStore((s) => s.trials?.limit ?? 3);
+  const pendingEmail = useAuthStore((s) => (s.user?.pendingVerification ? s.user.email : null));
+
+  if (pendingEmail) {
+    return (
+      <div className="surface animate-rise flex flex-col gap-3 rounded-2xl p-4 sm:flex-row sm:items-center sm:gap-4">
+        <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-warning/10 text-warning">
+          <MailWarning className="size-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold">Verify your email to keep going</p>
+          <p className="break-words text-sm text-muted-foreground">Open the link we sent to {pendingEmail}. This chat stays with you.</p>
+        </div>
+        <Button onClick={() => openDialog("trial", "verify")}>I've verified</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="surface animate-rise flex flex-col gap-3 rounded-2xl p-4 sm:flex-row sm:items-center sm:gap-4">
+      <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+        <LockKeyhole className="size-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold">You have used your {limit} free questions</p>
+        <p className="text-sm text-muted-foreground">Create a free account to keep asking. This chat stays with you.</p>
+      </div>
+      <div className="flex gap-2">
+        <Button variant="ghost" onClick={() => openDialog("trial", "signin")}>
+          Sign in
+        </Button>
+        <Button onClick={() => openDialog("trial", "signup")}>Create account</Button>
+      </div>
+    </div>
   );
 }
 
 function EmptyChat({ doc, onPick }: { doc: DocumentInfo; onPick: (text: string) => void }) {
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center py-6 text-center sm:py-12">
-      <motion.div
-        animate={{ rotate: [0, -6, 6, 0] }}
-        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        className="grid size-16 place-items-center rounded-3xl bg-brand text-white shadow-2xl shadow-indigo-500/30"
-      >
-        <MessageSquareText className="size-7" />
-      </motion.div>
+      <div className="grid size-12 place-items-center rounded-xl bg-primary/10 text-primary">
+        <MessageSquareText className="size-6" />
+      </div>
       <h2 className="mt-5 text-xl font-semibold tracking-tight sm:text-2xl">Ask your document anything</h2>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
         Answers come only from <span className="font-medium text-foreground">{doc.filename}</span>, with page citations you can click to open the PDF at that page.
@@ -157,14 +206,13 @@ function EmptyChat({ doc, onPick }: { doc: DocumentInfo; onPick: (text: string) 
           <motion.button
             key={title}
             type="button"
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.08 * i }}
-            whileHover={{ y: -3 }}
+            transition={{ delay: 0.06 * i, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             onClick={() => onPick(text)}
-            className="focus-ring glass group flex items-start gap-3 rounded-2xl p-4 text-left transition-colors hover:border-primary/40"
+            className="focus-ring surface group flex items-start gap-3 rounded-xl p-4 text-left transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/40"
           >
-            <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+            <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
               <Icon className="size-4" />
             </div>
             <div>

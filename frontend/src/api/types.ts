@@ -35,6 +35,18 @@ export interface DocumentInfo {
   chunk_config: ChunkConfig;
   profile: DocumentProfile;
   embedding_id: string;
+  /** Signed, short-lived token for opening the PDF in a new tab. */
+  file_token?: string;
+}
+
+export interface Me {
+  uid: string;
+  email: string | null;
+  is_guest: boolean;
+  auth_enabled: boolean;
+  trials_used: number | null;
+  trials_limit: number | null;
+  trials_remaining: number | null;
 }
 
 export interface SourceChunk {
@@ -94,6 +106,7 @@ export type ChatEvent =
   | { type: "flashcards"; flashcards: FlashcardDeck }
   | { type: "error"; message: string }
   | { type: "cached" }
+  | { type: "usage"; trials_remaining: number; trials_limit: number }
   | { type: "done" };
 
 export type UploadStage = "uploading" | "uploaded" | "parsing" | "analyzing" | "chunking" | "embedding" | "done";
@@ -142,4 +155,5 @@ export interface Health {
   documents: number;
   max_upload_mb: number;
   max_pages: number;
+  auth_enabled?: boolean;
 }

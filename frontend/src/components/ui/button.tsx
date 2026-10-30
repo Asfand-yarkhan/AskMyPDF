@@ -4,24 +4,24 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "focus-ring inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
+  "focus-ring inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-[background-color,color,box-shadow,transform] duration-150 ease-out-expo active:translate-y-px active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "bg-brand text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:brightness-110",
+          "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/70",
-        outline: "border border-border bg-background/40 backdrop-blur hover:bg-secondary",
+        outline: "border border-border bg-card hover:bg-secondary",
         ghost: "hover:bg-secondary hover:text-foreground",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
         default: "h-10 px-4",
-        sm: "h-8 rounded-lg px-3 text-xs",
-        lg: "h-12 rounded-2xl px-6 text-base",
+        sm: "h-8 rounded-md px-3 text-xs",
+        lg: "h-11 rounded-xl px-6 text-[15px]",
         icon: "size-9",
-        "icon-sm": "size-8 rounded-lg",
+        "icon-sm": "size-8 rounded-md",
       },
     },
     defaultVariants: { variant: "default", size: "default" },

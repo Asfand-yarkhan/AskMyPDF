@@ -48,7 +48,7 @@ export const ChatMessage = memo(function ChatMessage({
       <div
         className={cn(
           "mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl",
-          isUser ? "bg-secondary text-foreground" : "bg-brand text-white shadow-md shadow-indigo-500/30",
+          isUser ? "bg-secondary text-foreground" : "bg-primary text-primary-foreground",
         )}
         aria-hidden
       >
@@ -56,13 +56,13 @@ export const ChatMessage = memo(function ChatMessage({
       </div>
 
       {isUser ? (
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tr-md bg-brand px-4 py-2.5 text-sm text-white shadow-lg shadow-indigo-500/20">
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tr-md bg-primary px-4 py-2.5 text-sm text-primary-foreground">
           {message.content}
         </div>
       ) : (
         <div className="group min-w-0 max-w-full flex-1 sm:max-w-[92%]">
           <CitationContext.Provider value={scope}>
-          <div className="glass rounded-2xl rounded-tl-md px-4 py-3">
+          <div className="surface rounded-2xl rounded-tl-md px-4 py-3">
             {(INTENT_LABEL[message.intent ?? "QA"] || docCount > 1 || message.cached) && (
               <div className="mb-2 flex flex-wrap gap-1.5">
                 {message.intent && INTENT_LABEL[message.intent] && (
@@ -119,7 +119,7 @@ export const ChatMessage = memo(function ChatMessage({
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <Tooltip content={copied ? "Copied!" : "Copy"}>
+    <Tooltip content={copied ? "Copied" : "Copy"}>
       <Button
         variant="ghost"
         size="icon-sm"

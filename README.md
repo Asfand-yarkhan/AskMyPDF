@@ -111,7 +111,7 @@ its dashboard.
 ## Deploying: Railway (backend) + Vercel (frontend)
 
 The backend needs **~2 GB RAM** (measured: ~0.9 GB idle, ~1.3 GB during search + reranking, more while
-embedding large PDFs). Choose a Railway plan that allows that, or set `RERANKER_MODEL=` (empty) to save ~0.4 GB.
+embedding large PDFs). Choose a Railway plan that allows that, or set `RERANKER_MODEL=off` to save ~0.4 GB.
 
 **Backend on Railway**
 1. New Project → **Deploy from GitHub repo** → `AskMyPDF`.
@@ -128,6 +128,24 @@ embedding large PDFs). Choose a Railway plan that allows that, or set `RERANKER_
 2. Root Directory `frontend` (Vite is detected; build `npm run build`, output `dist`).
 3. Environment variable `VITE_API_URL=https://<your-backend>.up.railway.app` (no trailing slash), then Deploy.
 
+**Accounts (Firebase Authentication)**
+
+Visitors get a guest session automatically and can ask `GUEST_TRIALS` (default 3) questions and upload one
+PDF. After that they sign up with Google or email. Signing up keeps the guest's documents and chats. Each
+account only sees its own documents. Without Firebase settings, the app runs as a single local user.
+
+1. [Firebase console](https://console.firebase.google.com) → **Add project** (Analytics not needed).
+2. **Build → Authentication → Get started → Sign-in method**: enable **Anonymous**, **Email/Password** and **Google**.
+3. **Authentication → Settings → Authorized domains**: add your Vercel domain (e.g. `askmypdf.vercel.app`).
+4. **Project settings → Your apps → Web (`</>`)**: register an app and copy its config into Vercel's
+   environment variables: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`,
+   `VITE_FIREBASE_APP_ID`. These are public identifiers, not secrets. Redeploy the frontend.
+5. On Railway set `FIREBASE_PROJECT_ID` to the same project id. The backend verifies every request's ID
+   token with Google's public keys; no service account file is needed.
+
+Set both sides together: a backend with `FIREBASE_PROJECT_ID` rejects requests from a frontend without
+the Firebase config. Documents uploaded before accounts were enabled have no owner and are hidden.
+
 **Updating:** merge into `main` → CI runs → Railway redeploys the backend and Vercel the frontend
 automatically. Branch pushes get Vercel preview links; both dashboards offer one-click rollback.
 
@@ -143,7 +161,7 @@ automatically. Branch pushes get Vercel preview links; both dashboards offer one
 | `OPENAI_BASE_URL` | (none) | any OpenAI-compatible server, e.g. Ollama `http://localhost:11434/v1` |
 | `REASONING_EFFORT` | `high` | gpt-oss models: `low` / `medium` / `high` |
 | `EMBEDDING_MODEL` | `intfloat/multilingual-e5-small` | multilingual; changing it re-indexes documents at startup |
-| `RERANKER_MODEL` | `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` | empty string disables reranking |
+| `RERANKER_MODEL` | `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` | `off` disables reranking |
 | `RETRIEVAL_K` / `RETRIEVAL_FETCH_K` / `RERANK_CANDIDATES` | `5` / `20` / `20` | passages to the LLM / per-method candidates / reranked pool |
 | `FULL_CONTEXT_MAX_CHARS` | `14000` | documents this small are read in full instead of searched |
 | `SUMMARY_MAX_INPUT_CHARS` | `24000` | fits Groq's free tier (8k tokens/min); raise on paid plans |
@@ -152,6 +170,10 @@ automatically. Branch pushes get Vercel preview links; both dashboards offer one
 | `MAX_UPLOAD_MB` / `MAX_PAGES` | `50` / `100` | upload limits |
 | `OCR_ENABLED`, `OCR_LANGUAGE`, `TESSERACT_CMD` | `true`, `eng` | use `eng+urd` for Urdu scans |
 | `HF_TOKEN` | (none) | optional Hugging Face token for faster model downloads |
+| `FIREBASE_PROJECT_ID` | (none) | turns on accounts; unset = single local user |
+| `GUEST_TRIALS` / `GUEST_IP_TRIALS_PER_DAY` | `3` / `10` | free questions per guest, and per network per day (so clearing browser data doesn't reset them) |
+| `GUEST_MAX_DOCUMENTS` / `USER_MAX_DOCUMENTS` | `1` / `50` | documents a guest / an account can keep |
+| `FILE_URL_SECRET` / `FILE_URL_TTL_HOURS` | auto / `12` | signs the links that open PDFs in a new tab |
 
 ---
 
@@ -218,11 +240,13 @@ section, kind, has_table, filename`.
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/upload` | multipart `file`. Streams SSE progress (`progress` events, then `complete` or `error`); `?stream=false` returns JSON |
-| `GET` | `/documents` | list indexed documents with their chunk config and profile |
+| `GET` | `/me` | current account; for guests, free questions used / left |
+| `POST` | `/me/claim` | `{guest_token}`: move a guest's documents to the account they just signed in to |
+| `GET` | `/documents` | your documents, each with a signed `file_token` |
 | `GET` | `/documents/{id}` | one document |
-| `GET` | `/documents/{id}/file` | the original PDF (opened by citation chips) |
-| `DELETE` | `/documents/{id}` | delete vectors, file, metadata and cached answers |
-| `POST` | `/chat` | `{doc_id, extra_doc_ids?, message, history}` → SSE: `intent`, `status`, `sources`, `token`, `quiz`, `flashcards`, `cached`, `error`, `done` |
+| `GET` | `/documents/{id}/file?token=` | the original PDF (opened by citation chips); the token replaces the auth header in new tabs |
+| `DELETE` | `/documents/{id}` | remove it from your account; files are purged when no account owns it |
+| `POST` | `/chat` | `{doc_id, extra_doc_ids?, message, history}` → SSE: `intent`, `status`, `sources`, `token`, `quiz`, `flashcards`, `cached`, `usage` (guests), `error`, `done`. A guest with no free questions left gets `403 {"detail":{"code":"trial_exhausted"}}` |
 | `POST` | `/quiz/grade` | `{items:[{question,type,options,correct_answer,user_answer}]}` → score per item; short answers graded by the LLM |
 | `GET` | `/health` | provider, models, key configured, document count, upload limits |
 

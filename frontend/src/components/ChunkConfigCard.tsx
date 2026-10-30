@@ -9,7 +9,7 @@ export function ChunkConfigCard({ doc, compact = false }: { doc: DocumentInfo; c
   const stats = [
     { icon: FileText, label: "Pages", value: doc.page_count },
     { icon: Blocks, label: "Chunks", value: doc.chunk_count },
-    { icon: Layers, label: "Size / overlap", value: cfg.chunk_overlap ? `${cfg.chunk_size} / ${cfg.chunk_overlap}` : "1 slide / 0" },
+    { icon: Layers, label: "Chunk size", value: cfg.chunk_overlap ? `${cfg.chunk_size} / ${cfg.chunk_overlap}` : "1 slide / 0" },
     { icon: Table2, label: "Tables", value: profile.table_count },
   ];
 
@@ -32,8 +32,8 @@ export function ChunkConfigCard({ doc, compact = false }: { doc: DocumentInfo; c
       <p className={cn("mt-2 text-muted-foreground", compact ? "text-xs" : "text-sm")}>{cfg.reason}</p>
       <div className={cn("mt-3 grid gap-2", compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-4")}>
         {stats.map(({ icon: Icon, label, value }) => (
-          <div key={label} className="rounded-xl bg-background/60 px-3 py-2">
-            <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+          <div key={label} className="rounded-lg bg-background/60 px-3 py-2">
+            <div className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
               <Icon className="size-3" /> {label}
             </div>
             <div className="mt-0.5 font-semibold tabular-nums">{value}</div>

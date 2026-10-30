@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, CircleAlert, FileText, Keyboard, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import type { DocumentInfo } from "@/api/types";
+import { AccountMenu, TrialMeter } from "@/components/AccountMenu";
 import { ChunkConfigCard } from "@/components/ChunkConfigCard";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useDeleteDocument, useHealth } from "@/hooks/useDocuments";
 import { cn, formatBytes, modKey } from "@/lib/utils";
+import { authEnabled } from "@/lib/auth";
 import { useAppStore } from "@/store/useAppStore";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export function Sidebar({ onClose }: { onClose?: () => void }) {
   const documents = useAppStore((s) => s.documents);
@@ -22,7 +25,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const [showConfig, setShowConfig] = useState(true);
 
   return (
-    <div className="flex h-full w-[min(20rem,85vw)] flex-col border-r border-border/60 bg-card/70 backdrop-blur-xl lg:w-72 lg:bg-card/40">
+    <div className="flex h-full w-[min(20rem,85vw)] flex-col border-r border-border/70 bg-card lg:w-72 lg:bg-background">
       <div className="flex items-center justify-between px-4 py-3.5">
         <Logo />
         {onClose && (
@@ -39,7 +42,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
       </div>
 
       <div className="mt-5 flex-1 overflow-y-auto px-3 scrollbar-thin">
-        <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Documents</p>
+        <p className="px-2 pb-2 text-xs font-medium text-muted-foreground">Documents</p>
         {!loaded ? (
           <div className="space-y-2">
             {[0, 1, 2].map((i) => (
@@ -47,7 +50,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
             ))}
           </div>
         ) : documents.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
             No documents yet. Upload a PDF to get started.
           </div>
         ) : (
@@ -65,7 +68,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
             <button
               type="button"
               onClick={() => setShowConfig((s) => !s)}
-              className="focus-ring flex w-full items-center justify-between rounded-lg px-2 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+              className="focus-ring flex w-full items-center justify-between rounded-lg px-2 pb-2 text-xs font-medium text-muted-foreground"
               aria-expanded={showConfig}
             >
               Index settings
@@ -95,13 +98,13 @@ function DocumentItem({ doc, active, onSelect }: { doc: DocumentInfo; active: bo
     <motion.li layout initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10, height: 0 }}>
       <div
         className={cn(
-          "group relative flex items-center gap-2.5 rounded-xl px-2.5 py-2 transition-colors",
-          active ? "bg-primary/10 ring-1 ring-inset ring-primary/25" : "hover:bg-secondary",
+          "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors",
+          active ? "bg-secondary" : "hover:bg-secondary/60",
         )}
       >
         {active && <motion.span layoutId="doc-active" className="absolute inset-y-2 left-0 w-1 rounded-full bg-primary" />}
         <button type="button" onClick={onSelect} className="focus-ring flex min-w-0 flex-1 items-center gap-2.5 rounded-lg text-left" aria-current={active}>
-          <div className={cn("grid size-9 shrink-0 place-items-center rounded-lg", active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground")}>
+          <div className={cn("grid size-9 shrink-0 place-items-center rounded-lg", active ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground")}>
             <FileText className="size-4" />
           </div>
           <div className="min-w-0">
@@ -138,10 +141,52 @@ function DocumentItem({ doc, active, onSelect }: { doc: DocumentInfo; active: bo
   );
 }
 
+function SidebarAccount() {
+  const user = useAuthStore((s) => s.user);
+  const openDialog = useAuthStore((s) => s.openDialog);
+  if (!authEnabled || !user) return null;
+
+  if (user.pendingVerification) {
+    return (
+      <div className="space-y-2.5 rounded-xl bg-warning/10 p-3">
+        <p className="text-sm font-medium">Verify your email</p>
+        <p className="text-xs text-muted-foreground">Open the link we sent to {user.email} to unlock unlimited questions.</p>
+        <TrialMeter />
+        <Button size="sm" variant="outline" className="w-full" onClick={() => openDialog("manual", "verify")}>
+          I've verified / resend link
+        </Button>
+      </div>
+    );
+  }
+
+  if (user.isGuest) {
+    return (
+      <div className="space-y-2.5 rounded-xl bg-secondary/70 p-3">
+        <p className="text-sm font-medium">You're using AskMyPDF as a guest</p>
+        <TrialMeter />
+        <Button size="sm" className="w-full" onClick={() => openDialog("manual", "signup")}>
+          Create free account
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2.5 px-1 py-1">
+      <AccountMenu up />
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{user.name || user.email}</p>
+        {user.name && <p className="truncate text-xs text-muted-foreground">{user.email}</p>}
+      </div>
+    </div>
+  );
+}
+
 function SidebarFooter({ onShortcuts }: { onShortcuts: () => void }) {
   const { health, offline } = useHealth();
   return (
     <div className="space-y-2 border-t border-border/60 p-3">
+      <SidebarAccount />
       <div className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-xs">
         <span className={cn("size-2 rounded-full", offline ? "bg-destructive" : health?.llm_configured ? "bg-success" : "bg-amber-500")} />
         <span className="truncate text-muted-foreground">

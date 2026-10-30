@@ -107,5 +107,5 @@ def ingest_pdf(
             embedding_id=settings.embedding_id,
         )
         registry.upsert(info)
-        report("done", 1.0, "Ready to chat!")
+        report("done", 1.0, "Ready to chat")
         return info, False

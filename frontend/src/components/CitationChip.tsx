@@ -40,7 +40,8 @@ export function CitationChip({
   const documents = useAppStore((s) => s.documents);
   const scope = useCitationScope();
   const docId = (docNumber > 0 ? scope.docIds[docNumber - 1] : scope.docIds[0]) ?? activeDocId ?? undefined;
-  const filename = documents.find((d) => d.doc_id === docId)?.filename;
+  const linked = documents.find((d) => d.doc_id === docId);
+  const filename = linked?.filename;
   const source = findSource(scope.sources, docId, page);
 
   const chipClass = cn(
@@ -56,7 +57,7 @@ export function CitationChip({
   if (!docId) return <span className={chipClass}>{content}</span>;
 
   const chip = (
-    <a href={`${api.fileUrl(docId)}#page=${page}`} target="_blank" rel="noreferrer" className={chipClass}>
+    <a href={`${api.fileUrl(linked ?? { doc_id: docId })}#page=${page}`} target="_blank" rel="noreferrer" className={chipClass}>
       {content}
     </a>
   );
@@ -85,7 +86,7 @@ export function CitationChip({
     <Tooltip
       content={preview}
       delayDuration={150}
-      className="glass w-80 max-w-[calc(100vw-2rem)] rounded-xl bg-popover/95 p-3 font-normal text-popover-foreground"
+      className="surface w-80 max-w-[calc(100vw-2rem)] rounded-xl bg-popover/95 p-3 font-normal text-popover-foreground"
     >
       {chip}
     </Tooltip>

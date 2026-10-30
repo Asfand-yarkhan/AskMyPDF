@@ -58,10 +58,9 @@ export function UploadDropzone({ onReady }: { onReady: (doc: DocumentInfo) => vo
           setDragging(false);
           pick(e.dataTransfer.files);
         }}
-        animate={{ scale: dragging ? 1.02 : 1 }}
         className={cn(
-          "focus-ring glass group relative flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed px-6 py-14 text-center transition-colors sm:py-20",
-          dragging ? "border-primary bg-primary/10" : "border-primary/30 hover:border-primary/60",
+          "focus-ring group relative flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-[1.5px] border-dashed bg-card px-6 py-12 text-center transition-[border-color,background-color] duration-200 sm:py-16",
+          dragging ? "border-primary bg-primary/[0.06]" : "border-input hover:border-primary/60",
         )}
       >
         <input
@@ -75,18 +74,21 @@ export function UploadDropzone({ onReady }: { onReady: (doc: DocumentInfo) => vo
           }}
         />
         <motion.div
-          animate={{ y: dragging ? -8 : [0, -6, 0] }}
-          transition={dragging ? { duration: 0.2 } : { duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          className="grid size-20 place-items-center rounded-3xl bg-brand text-white shadow-2xl shadow-indigo-500/40"
+          animate={{ y: dragging ? -4 : 0 }}
+          transition={{ duration: 0.2 }}
+          className={cn(
+            "grid size-12 place-items-center rounded-xl transition-colors duration-200",
+            dragging ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground",
+          )}
         >
-          <CloudUpload className="size-9" />
+          <CloudUpload className="size-6" />
         </motion.div>
-        <h2 className="mt-6 text-xl font-semibold tracking-tight sm:text-2xl">
-          {dragging ? "Drop it like it's hot" : "Drop your PDF here"}
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          or <span className="font-medium text-primary underline-offset-4 group-hover:underline">browse files</span>{" "}
-          · up to {health?.max_upload_mb ?? MAX_UPLOAD_MB} MB and {health?.max_pages ?? MAX_PAGES} pages · scanned PDFs supported (OCR)
+        <h2 className="mt-5 text-lg font-semibold tracking-tight">{dragging ? "Release to upload" : "Drop a PDF here"}</h2>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          or <span className="font-medium text-primary underline-offset-4 group-hover:underline">choose a file</span>
+        </p>
+        <p className="mt-5 text-xs tabular-nums text-muted-foreground">
+          Up to {health?.max_upload_mb ?? MAX_UPLOAD_MB} MB and {health?.max_pages ?? MAX_PAGES} pages. Scanned PDFs work too.
         </p>
       </motion.div>
     );
@@ -95,7 +97,7 @@ export function UploadDropzone({ onReady }: { onReady: (doc: DocumentInfo) => vo
   const current = STEP_INDEX[state.stage] ?? 0;
 
   return (
-    <motion.div layout initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="glass rounded-3xl p-5 sm:p-8">
+    <motion.div layout initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="surface rounded-2xl p-5 sm:p-6">
       <div className="flex items-center gap-3">
         <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
           <FileText className="size-5" />
@@ -123,7 +125,7 @@ export function UploadDropzone({ onReady }: { onReady: (doc: DocumentInfo) => vo
                 className={cn(
                   "grid size-10 place-items-center rounded-2xl transition-colors",
                   done && "bg-success text-success-foreground",
-                  active && "bg-primary text-primary-foreground shadow-lg shadow-primary/30",
+                  active && "bg-primary text-primary-foreground",
                   !done && !active && "bg-secondary text-muted-foreground",
                   state.stage === "error" && active && "bg-destructive",
                 )}
